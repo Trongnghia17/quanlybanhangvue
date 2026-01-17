@@ -1,0 +1,58 @@
+
+.product-dialog {
+  border-radius: 16px;
+}
+
+.v-card {
+  overflow: hidden;
+}
+
+.v-toolbar {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.v-text-field ::v-deep .v-input__slot,
+.v-textarea ::v-deep .v-input__slot {
+  min-height: 44px !important;
+  transition: all 0.2s ease;
+}
+
+.v-text-field ::v-deep .v-input__slot:hover,
+.v-textarea ::v-deep .v-input__slot:hover {
+  border-color: #009688 !important;
+}
+
+.v-text-field ::v-deep .v-input__prepend-inner {
+  margin-right: 8px;
+}
+
+.v-text-field ::v-deep .v-input__prepend-inner i {
+  opacity: 0.6;
+}
+
+.v-btn {
+  text-transform: none !important;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.v-btn.v-btn--contained {
+  box-shadow: 0 4px 12px rgba(0, 150, 136, 0.4) !important;
+}
+
+.v-btn.v-btn--contained:hover {
+  box-shadow: 0 6px 15px rgba(0, 150, 136, 0.5) !important;
+}
+
+.grey.lighten-5 {
+  transition: all 0.2s ease;
+}
+
+.grey.lighten-5:hover {
+  background-color: #f0f7f6 !important;
+}
+
+.border {
+  border: 1px solid #e0e0e0;
+}
