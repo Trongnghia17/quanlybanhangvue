@@ -5,3 +5,12 @@ package-lock.json
 npm-debug.log
 .idea/
 dist/
+
+# Environment files (không commit .env vào git)
+.env.local
+.env.*.local
+
+# Giữ file example và template
+!.env.example
+!.env.development
+!.env.production
