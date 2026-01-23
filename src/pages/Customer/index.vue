@@ -42,20 +42,35 @@
               dense
               clearable
               class="search-field"
-              keyup="fetchListCustomers()"
+              @keyup.enter="fetchListCustomers()"
             ></v-text-field>
-
           </v-col>
-          <v-col cols="12" md="1"
-          >
-          <v-btn
-          icon
-          @click="fetchListCustomers()"
-          class="search-field"
-        >
-          <v-icon>mdi-filter-variant</v-icon>
-        </v-btn>
-        </v-col>
+          
+          <v-col cols="12" md="3">
+            <v-select
+              v-model="healthNeedFilter"
+              :items="healthNeedsList"
+              label="Nhu cầu sức khỏe"
+              prepend-inner-icon="mdi-heart-pulse"
+              outlined
+              dense
+              clearable
+              hide-details
+              class="search-field"
+              placeholder="Lọc theo nhu cầu"
+            ></v-select>
+          </v-col>
+
+          <v-col cols="12" md="1">
+            <v-btn
+              icon
+              @click="fetchListCustomers()"
+              class="search-field"
+              color="primary"
+            >
+              <v-icon>mdi-filter-variant</v-icon>
+            </v-btn>
+          </v-col>
           <v-spacer></v-spacer>
           <v-col cols="12" md="6" class="d-flex justify-end">
             <v-btn
@@ -203,6 +218,43 @@
               <span>{{item.note}}</span>
             </v-tooltip>
             <span v-else class="text-truncate note-cell">{{item.note || 'N/A'}}</span>
+          </div>
+        </template>
+
+        <template v-slot:item.health_needs="{ item }">
+          <div class="d-flex align-center">
+            <v-icon small color="grey darken-1" class="mr-1">mdi-heart-pulse</v-icon>
+            <div v-if="item.health_needs && item.health_needs.length > 0">
+              <v-chip
+                v-for="(need, index) in item.health_needs.slice(0, 2)"
+                :key="index"
+                x-small
+                color="primary"
+                outlined
+                class="mr-1 mb-1"
+              >
+                {{ need }}
+              </v-chip>
+              <v-tooltip bottom v-if="item.health_needs.length > 2">
+                <template v-slot:activator="{ on, attrs }">
+                  <v-chip
+                    x-small
+                    color="grey"
+                    outlined
+                    v-bind="attrs"
+                    v-on="on"
+                  >
+                    +{{ item.health_needs.length - 2 }}
+                  </v-chip>
+                </template>
+                <div>
+                  <div v-for="(need, index) in item.health_needs.slice(2)" :key="index">
+                    {{ need }}
+                  </div>
+                </div>
+              </v-tooltip>
+            </div>
+            <span v-else class="grey--text">N/A</span>
           </div>
         </template>
 
@@ -354,6 +406,15 @@ export default {
     return {
       tableOptions: {},
       search: '',
+      healthNeedFilter: null,
+      healthNeedsList: [
+        'Xương khớp',
+        'Tiểu đường',
+        'Tăng cân',
+        'Giảm cân',
+        'Con cần dinh dưỡng',
+        'Tiêu hóa'
+      ],
       tableLoading: false,
       exportLoading: false,
       // Pagination parameters
@@ -366,7 +427,8 @@ export default {
         { text: 'Số điện thoại', value: 'phone', width: '150px' },
         { text: 'Email', value: 'email', width: '180px' },
         { text: 'Địa chỉ', value: 'address' },
-        { text: 'Thông tin chi tiết', value: 'note' },
+        { text: 'Thông tin chi tiết', value: 'note', width: '200px' },
+        { text: 'Nhu cầu sức khỏe', value: 'health_needs', width: '250px' },
         { text: 'Công nợ', value: 'total_money', width: '150px'},
         { text: 'Cập nhật lúc', value: 'updated_at', width: '180px'},
         { text: '', value: 'action', sortable: false, width: '70px', align: 'center' },
@@ -444,6 +506,11 @@ export default {
         search: this.search,
         page: page,
         per_page: itemsPerPage
+      }
+
+      // Thêm filter nhu cầu sức khỏe nếu có
+      if (this.healthNeedFilter) {
+        searchParams.health_need = this.healthNeedFilter;
       }
 
       customerActions.getCustomers(searchParams).then(res => {

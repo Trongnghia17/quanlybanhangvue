@@ -121,6 +121,46 @@
               ></v-textarea>
             </v-col>
           </v-row>
+
+          <v-row>
+            <v-col cols="12">
+              <v-select
+                v-model="health_needs"
+                :items="healthNeedsList"
+                label="Nhu cầu sức khỏe"
+                prepend-icon="mdi-heart-pulse"
+                outlined
+                dense
+                multiple
+                chips
+                small-chips
+                deletable-chips
+                class="mb-2"
+                color="primary"
+                hide-details="auto"
+                placeholder="Chọn nhu cầu sức khỏe..."
+              >
+                <template v-slot:selection="{ item, index }">
+                  <v-chip
+                    v-if="index < 3"
+                    small
+                    close
+                    @click:close="removeHealthNeed(item)"
+                    color="primary"
+                    outlined
+                  >
+                    {{ item }}
+                  </v-chip>
+                  <span
+                    v-if="index === 3"
+                    class="grey--text text-caption"
+                  >
+                    (+{{ health_needs.length - 3 }} khác)
+                  </span>
+                </template>
+              </v-select>
+            </v-col>
+          </v-row>
         </v-form>
       </v-card-text>
 
@@ -175,6 +215,15 @@ export default {
       address: '',
       total_money: 0,
       note: '',
+      health_needs: [],
+      healthNeedsList: [
+        'Xương khớp',
+        'Tiểu đường',
+        'Tăng cân',
+        'Giảm cân',
+        'Con cần dinh dưỡng',
+        'Tiêu hóa'
+      ],
       nameRules: [
         v => !!v || 'Tên khách hàng không được để trống'
       ],
@@ -191,6 +240,10 @@ export default {
     formatCurrency() {
       this.total_money = this.total_money.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     },
+    removeHealthNeed(item) {
+      const index = this.health_needs.indexOf(item);
+      if (index >= 0) this.health_needs.splice(index, 1);
+    },
     toggle() {
       if (!this.loading) {
         this.$emit('toggle');
@@ -204,6 +257,7 @@ export default {
       this.address = '';
       this.total_money = 0;
       this.note = '';
+      this.health_needs = [];
       if (this.$refs.form) {
         this.$refs.form.resetValidation();
       }
@@ -220,7 +274,8 @@ export default {
         email: this.email,
         address: this.address,
         total_money: parseInt(this.total_money ? this.total_money.replace(/\D/g, '' ) : 0),
-        note: this.note
+        note: this.note,
+        health_needs: this.health_needs
       };
 
       customerActions.createCustomer(customerData).then(res => {
