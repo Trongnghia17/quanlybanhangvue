@@ -191,6 +191,21 @@
           </div>
         </template>
 
+        <template v-slot:item.note="{ item }">
+          <div class="d-flex align-center">
+            <v-icon small color="grey darken-1" class="mr-1">mdi-note-text</v-icon>
+            <v-tooltip bottom v-if="item.note && item.note.length > 30">
+              <template v-slot:activator="{ on, attrs }">
+                <span class="text-truncate note-cell" v-bind="attrs" v-on="on">
+                  {{item.note}}
+                </span>
+              </template>
+              <span>{{item.note}}</span>
+            </v-tooltip>
+            <span v-else class="text-truncate note-cell">{{item.note || 'N/A'}}</span>
+          </div>
+        </template>
+
         <template v-slot:item.total_money="{ item }">
           <div class="font-weight-medium" :class="{'red--text': item.total_money > 50000000}">
             {{formatCurrency(item.debt)}}
@@ -351,6 +366,7 @@ export default {
         { text: 'Số điện thoại', value: 'phone', width: '150px' },
         { text: 'Email', value: 'email', width: '180px' },
         { text: 'Địa chỉ', value: 'address' },
+        { text: 'Thông tin chi tiết', value: 'note' },
         { text: 'Công nợ', value: 'total_money', width: '150px'},
         { text: 'Cập nhật lúc', value: 'updated_at', width: '180px'},
         { text: '', value: 'action', sortable: false, width: '70px', align: 'center' },
@@ -577,6 +593,12 @@ export default {
 .address-cell {
   max-width: 180px;
   display: inline-block;
+}
+
+.note-cell {
+  max-width: 800px;
+  display: inline-block;
+  cursor: pointer;
 }
 
 /* Responsive adjustments */

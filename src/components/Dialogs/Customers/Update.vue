@@ -104,6 +104,23 @@
                 ></v-text-field>
             </v-col>
           </v-row>
+          
+          <v-row>
+            <v-col cols="12">
+              <v-textarea
+                v-model="note"
+                label="Thông tin chi tiết"
+                prepend-icon="mdi-note-text"
+                outlined
+                dense
+                rows="3"
+                class="mb-2"
+                color="info"
+                hide-details="auto"
+                placeholder="Nhập thông tin chi tiết về khách hàng..."
+              ></v-textarea>
+            </v-col>
+          </v-row>
         </v-form>
       </v-card-text>
 
@@ -162,6 +179,7 @@ export default {
       email: '',
       address: '',
       total_money: 0,
+      note: '',
       nameRules: [
         v => !!v || 'Tên khách hàng không được để trống'
       ],
@@ -196,6 +214,7 @@ export default {
       this.phone = customer.phone || '';
       this.email = customer.email || '';
       this.address = customer.address || '';
+      this.note = customer.note || '';
 
       // Format total_money with commas
       const money = customer.total_money || 0;
@@ -217,6 +236,7 @@ export default {
       this.email = '';
       this.address = '';
       this.total_money = 0;
+      this.note = '';
       if (this.$refs.form) {
         this.$refs.form.resetValidation();
       }
@@ -233,7 +253,8 @@ export default {
         phone: this.phone,
         email: this.email,
         address: this.address,
-        total_money: parseInt(this.total_money ? this.total_money.replace(/\D/g, '') : 0)
+        total_money: parseInt(this.total_money ? this.total_money.replace(/\D/g, '') : 0),
+        note: this.note
       };
 
       customerActions.updateCustomer(customerData).then(res => {
@@ -242,9 +263,20 @@ export default {
         this.$emit('refresh');
         this.$emit('toggle');
       }).catch(err => {
-        console.error('Update error:', err);
-        this.$snackbar.error('Có lỗi xảy ra khi cập nhật khách hàng!');
         this.loading = false;
+        console.error('Update error:', err);
+        
+        // Hiển thị lỗi chi tiết từ backend
+        if (err.response && err.response.data && err.response.data.errors) {
+          const errors = err.response.data.errors;
+          if (errors.phone) {
+            this.$snackbar.error(errors.phone[0]);
+          } else {
+            this.$snackbar.error('Có lỗi xảy ra khi cập nhật khách hàng!');
+          }
+        } else {
+          this.$snackbar.error('Có lỗi xảy ra khi cập nhật khách hàng!');
+        }
       });
     }
   }
