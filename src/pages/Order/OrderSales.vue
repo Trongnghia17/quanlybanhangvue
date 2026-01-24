@@ -3,6 +3,7 @@
   <div>
     <v-app-bar flat color="primary" dark class="px-4">
       <v-autocomplete
+        ref="productSearch"
         v-model="searchProduct"
         :items="listProduct"
         placeholder="Tìm hàng hóa"
@@ -640,9 +641,10 @@ export default {
     },
     setDefaultDiscountType(){
       this.listProduct.forEach((item) => {
-        item.discountType = 1;
-        item.discount = 0;
-        item.formattedDiscount = '0';
+        // Use discount from product configuration if available, otherwise default to 0
+        item.discountType = item.discount_type || item.discountType || 1;
+        item.discount = item.discount || 0;
+        item.formattedDiscount = this.formatNumber(item.discount || 0);
       });
     },
     fetchCustomers(){
@@ -682,10 +684,24 @@ export default {
       } else {
         // Add new product with formatted values and ensure quantity is positive
         const newProduct = {...item, quantity: 1};
-        // Initialize formatted discount
-        newProduct.formattedDiscount = '0';
+        // Use discount from product configuration
+        newProduct.discountType = item.discount_type || item.discountType || 1;
+        newProduct.discount = item.discount || 0;
+        newProduct.formattedDiscount = this.formatNumber(newProduct.discount);
         this.selectedProducts.push(newProduct);
       }
+
+      // Clear search to allow selecting another product
+      this.searchProduct = null;
+      this.searchQuery = '';
+      
+      // Close the dropdown menu
+      this.$nextTick(() => {
+        if (this.$refs.productSearch) {
+          this.$refs.productSearch.blur();
+          this.$refs.productSearch.isMenuActive = false;
+        }
+      });
     },
 
     validateQuantity(item) {

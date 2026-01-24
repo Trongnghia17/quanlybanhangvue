@@ -200,6 +200,39 @@
                 ></v-text-field>
               </v-col>
 
+              <v-col cols="12" sm="8">
+                <v-text-field
+                  v-model="discount"
+                  @input="formatCurrency('discount')"
+                  @focus="$event => $event.target.select()"
+                  label="Chiết khấu"
+                  prepend-inner-icon="mdi-sale"
+                  outlined
+                  dense
+                  class="mb-2 rounded-lg"
+                  color="teal"
+                  hide-details="auto"
+                  placeholder="VD: 10,000 hoặc 10"
+                ></v-text-field>
+              </v-col>
+
+              <v-col cols="12" sm="4">
+                <v-select
+                  v-model="discount_type"
+                  :items="[
+                    { text: 'Phần trăm (%)', value: 1 },
+                    { text: 'Số tiền (VNĐ)', value: 2 }
+                  ]"
+                  label="Loại chiết khấu"
+                  prepend-inner-icon="mdi-percent"
+                  outlined
+                  dense
+                  class="mb-2 rounded-lg"
+                  color="teal"
+                  hide-details="auto"
+                ></v-select>
+              </v-col>
+
 
             </v-row>
           </v-card>
@@ -495,6 +528,8 @@ export default {
       barcode: '',
       base_cost: '',
       retail_cost: '',
+      discount: '',
+      discount_type: 1,
       in_stock: 0,
       sold: 0,
       temporality: 7,
@@ -603,9 +638,12 @@ export default {
       // Format currency values with commas
       const base = product.base_cost || 0;
       const retail = product.retail_cost || 0;
+      const disc = product.discount || 0;
 
       this.base_cost = base.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       this.retail_cost = retail.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      this.discount = disc.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      this.discount_type = product.discount_type || 1;
     },
 
     toggle() {
@@ -657,6 +695,8 @@ export default {
       formData.append('base_cost', this.base_cost ? this.base_cost.toString().replace(/,/g, '') : '0');
       formData.append('retail_cost', this.retail_cost ? this.retail_cost.toString().replace(/,/g, '') : '0');
       formData.append('wholesale_cost', this.wholesale_cost ? this.retail_cost.toString().replace(/,/g, '') : '0');
+      formData.append('discount', this.discount ? this.discount.toString().replace(/,/g, '') : '0');
+      formData.append('discount_type', this.discount_type);
       formData.append('in_stock', this.in_stock || 0);
       formData.append('sold', this.sold || 0);
       formData.append('temporality', this.temporality || 0);

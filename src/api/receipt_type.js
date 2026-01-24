@@ -1,5 +1,6 @@
 import URL from '@/assets/configurations/BASE_URL.js'
 import axios from 'axios'
+import axiosInstance from '@/utils/axios'
 import Cookies from 'vue-cookies'
 
 const state = () => {

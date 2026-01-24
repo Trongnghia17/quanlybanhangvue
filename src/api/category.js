@@ -1,5 +1,6 @@
 import URL from '@/assets/configurations/BASE_URL.js'
 import axios from 'axios'
+import axiosInstance from '@/utils/axios'
 import Cookies from 'vue-cookies'
 
 const state = () => {
@@ -26,17 +27,9 @@ const state = () => {
 const actions = {
   async getListCategories(payload) {
     const apiState = state();
-    return await axios({
+    return await axiosInstance({
       url: apiState.getListCategories.url,
       method: apiState.getListCategories.method,
-      baseURL: URL.BASE_URL,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        Authorization:
-          Cookies.get('token') != (null || undefined)
-            ? `Bearer ${Cookies.get('token')}`
-            : '',
-      },
       params: {
         ...payload,
       },
@@ -44,49 +37,25 @@ const actions = {
   },
   async createCategory(payload) {
     const apiState = state();
-    return await axios({
+    return await axiosInstance({
       url: apiState.createCategory.url,
       method: apiState.createCategory.method,
-      baseURL: URL.BASE_URL,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        Authorization:
-          Cookies.get('token') != (null || undefined)
-            ? `Bearer ${Cookies.get('token')}`
-            : '',
-      },
       data: payload,
     });
   },
   async updateCategory(payload) {
     const apiState = state();
-    return await axios({
+    return await axiosInstance({
       url: apiState.updateCategory.url.replace('{id}', payload.id),
       method: apiState.updateCategory.method,
-      baseURL: URL.BASE_URL,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        Authorization:
-          Cookies.get('token') != (null || undefined)
-            ? `Bearer ${Cookies.get('token')}`
-            : '',
-      },
       data: payload.data,
     });
   },
   async deleteCategory(id) {
     const apiState = state();
-    return await axios({
+    return await axiosInstance({
       url: apiState.deleteCategory.url.replace('{id}', id),
       method: apiState.deleteCategory.method,
-      baseURL: URL.BASE_URL,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        Authorization:
-          Cookies.get('token') != (null || undefined)
-            ? `Bearer ${Cookies.get('token')}`
-            : '',
-      },
     });
   },
 }

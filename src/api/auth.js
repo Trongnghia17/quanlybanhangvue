@@ -1,5 +1,6 @@
 import URL from '@/assets/configurations/BASE_URL.js'
 import axios from 'axios'
+import axiosInstance from '@/utils/axios' // Import axios instance với interceptor
 import Cookies from 'vue-cookies'
 
 const state = () => {
@@ -45,17 +46,9 @@ const state = () => {
 const actions = {
   async getAccountInfo(payload) {
     const apiState = state();
-    return await axios({
+    return await axiosInstance({
       url: apiState.getAccountInfo.url,
       method: apiState.getAccountInfo.method,
-      baseURL: URL.BASE_URL,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        Authorization:
-          Cookies.get('token') != (null || undefined)
-            ? `Bearer ${Cookies.get('token')}`
-            : '',
-      },
       params: {
         ...payload,
       },
@@ -63,6 +56,7 @@ const actions = {
   },
   async login(payload) {
     const apiState = state();
+    // Login không dùng interceptor để tránh vòng lặp
     return await axios({
       url: apiState.login.url,
       method: apiState.login.method,
@@ -77,6 +71,7 @@ const actions = {
 
   async register(payload) {
     const apiState = state();
+    // Register không dùng interceptor
     return await axios({
       url: apiState.register.url,
       method: apiState.register.method,
@@ -105,18 +100,9 @@ const actions = {
 
   async updateStoreName(payload) {
     const apiState = state();
-    return await axios({
+    return await axiosInstance({
       url: apiState.updateStoreName.url,
       method: apiState.updateStoreName.method,
-      baseURL: URL.BASE_URL,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        Authorization:
-          Cookies.get('token') != (null || undefined)
-            ? `Bearer ${Cookies.get('token')}`
-            : '',
-        'Content-Type': 'application/json'
-      },
       data: payload
     });
   },
@@ -137,18 +123,9 @@ const actions = {
 
   async changePassword(payload) {
     const apiState = state();
-    return await axios({
+    return await axiosInstance({
       url: apiState.changePassword.url,
       method: apiState.changePassword.method,
-      baseURL: URL.BASE_URL,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        Authorization:
-          Cookies.get('token') != (null || undefined)
-            ? `Bearer ${Cookies.get('token')}`
-            : '',
-        'Content-Type': 'application/json'
-      },
       data: payload
     });
   }
