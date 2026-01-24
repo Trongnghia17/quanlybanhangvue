@@ -601,7 +601,7 @@ export default {
           product_id: item.id,
           quantity: item.quantity,
           discount: item.discount,
-          discountType: item.discountType,
+          discount_type: item.discountType,
           price: item.base_cost,
         };
         orderDetails.push(product);
