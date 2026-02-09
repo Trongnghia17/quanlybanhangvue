@@ -635,6 +635,14 @@ export default {
                     text: 'Đã hủy',
                     value: '3'
                 },
+                {
+                    text: 'Trả hàng',
+                    value: '4'
+                },
+                {
+                    text: 'Hủy sau hoàn thành',
+                    value: '5'
+                },
             ],
             listOrders: [],
             orderMeta: {},
@@ -834,8 +842,10 @@ export default {
                     return 'success'; // Đã hoàn thành
                 case 3:
                     return 'error'; // Đã hủy
+                case 4:
+                    return 'info'; // Trả hàng
                 case 5:
-                    return 'error';
+                    return 'error'; // Hủy sau hoàn thành
                 default:
                     return 'grey';
             }
@@ -849,8 +859,10 @@ export default {
                     return 'mdi-check-circle'; // Đã hoàn thành
                 case 3:
                     return 'mdi-close-circle'; // Đã hủy
+                case 4:
+                    return 'mdi-keyboard-return'; // Trả hàng
                 case 5:
-                    return 'mdi-package-variant-closed-remove'; // Trả hàng
+                    return 'mdi-package-variant-closed-remove'; // Hủy sau hoàn thành
                 default:
                     return 'mdi-help-circle-outline';
             }
@@ -864,8 +876,10 @@ export default {
                     return 'Đã hoàn thành';
                 case 3:
                     return 'Đã hủy';
+                case 4:
+                    return 'Trả hàng';
                 case 5:
-                    return 'Đã hủy';
+                    return 'Hủy sau hoàn thành';
                 default:
                     return 'Không xác định';
             }
