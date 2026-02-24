@@ -8,6 +8,10 @@ const state = () => {
       url: '/customers',
       method: 'GET'
     },
+    getCustomerById: {
+      url: '/customers/{id}',
+      method: 'GET'
+    },
     createCustomer: {
       url: '/customers',
       method: 'POST'
@@ -42,6 +46,22 @@ const actions = {
       },
       params: {
         ...payload,
+      },
+    });
+  },
+
+  async getCustomerById(id) {
+    const apiState = state();
+    return await axios({
+      url: apiState.getCustomerById.url.replace('{id}', id),
+      method: apiState.getCustomerById.method,
+      baseURL: URL.BASE_URL,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        Authorization:
+          Cookies.get('token') != (null || undefined)
+            ? `Bearer ${Cookies.get('token')}`
+            : '',
       },
     });
   },

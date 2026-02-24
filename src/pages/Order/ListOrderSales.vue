@@ -112,7 +112,7 @@
                         Xuất Excel
                     </v-btn>
 
-                    <v-btn color="primary" dark :to="'/orders/create'" class="px-4 font-weight-medium text-none rounded-lg" elevation="2">
+                    <v-btn color="primary" dark :to="'/order-sales'" class="px-4 font-weight-medium text-none rounded-lg" elevation="2">
                         <v-icon left>mdi-plus</v-icon>
                         Tạo đơn hàng mới
                     </v-btn>
@@ -166,12 +166,37 @@
             <template v-slot:item.customer="{ item }">
                 <div>
                     <div class="font-weight-medium d-flex align-center">
-                        <v-icon x-small color="blue lighten-1" class="mr-1">mdi-account</v-icon>
-                        <span>{{ item.name }}</span>
+                        <v-icon x-small :color="item.customer_id ? 'blue lighten-1' : 'grey'" class="mr-1">mdi-account</v-icon>
+                        <span :class="{'grey--text': !item.customer_id}">{{ item.name || 'Chưa có khách hàng' }}</span>
+                        <v-menu offset-y>
+                            <template v-slot:activator="{ on, attrs }">
+                                <v-btn icon x-small :color="item.customer_id ? 'info' : 'success'" class="ml-1" v-bind="attrs" v-on="on">
+                                    <v-icon x-small>{{ item.customer_id ? 'mdi-dots-vertical' : 'mdi-plus' }}</v-icon>
+                                </v-btn>
+                            </template>
+                            <v-list dense>
+                                <v-list-item v-if="item.customer_id" @click="editCustomerFromOrder(item)">
+                                    <v-list-item-icon class="mr-2">
+                                        <v-icon small color="info">mdi-pencil</v-icon>
+                                    </v-list-item-icon>
+                                    <v-list-item-title>Sửa thông tin</v-list-item-title>
+                                </v-list-item>
+                                <v-list-item @click="openChangeCustomerDialog(item)">
+                                    <v-list-item-icon class="mr-2">
+                                        <v-icon small :color="item.customer_id ? 'orange' : 'success'">
+                                            {{ item.customer_id ? 'mdi-account-switch' : 'mdi-account-plus' }}
+                                        </v-icon>
+                                    </v-list-item-icon>
+                                    <v-list-item-title>
+                                        {{ item.customer_id ? 'Đổi khách hàng' : 'Thêm khách hàng' }}
+                                    </v-list-item-title>
+                                </v-list-item>
+                            </v-list>
+                        </v-menu>
                     </div>
-                    <div class="text-caption d-flex align-center mt-1" v-if="item.customer?.phone">
+                    <div class="text-caption d-flex align-center mt-1" v-if="item.phone">
                         <v-icon x-small color="grey lighten-1" class="mr-1">mdi-phone</v-icon>
-                        <span>{{ item.customer?.phone }}</span>
+                        <span>{{ item.phone }}</span>
                     </div>
                     <div v-if="item.address" class="text-caption d-flex align-center mt-1" style="max-width: 150px">
                         <v-icon x-small color="grey lighten-1" class="mr-1">mdi-map-marker</v-icon>
@@ -300,7 +325,7 @@
                     <v-img src="https://cdn.vuetifyjs.com/images/lists/no-results.svg" max-width="200" class="mx-auto mb-4"></v-img>
                     <div class="text-h6 grey--text text--darken-1 mb-2">Chưa có đơn hàng nào</div>
                     <div class="text-body-2 grey--text mb-4">Tạo đơn hàng mới để bắt đầu quản lý bán hàng</div>
-                    <v-btn color="primary" class="px-5" outlined :to="'/orders/create'">
+                    <v-btn color="primary" class="px-5" outlined :to="'/order-sales'">
                         <v-icon left>mdi-plus</v-icon>
                         Tạo đơn hàng mới
                     </v-btn>
@@ -340,12 +365,41 @@
 
                         <v-card-text class="py-2">
                             <div class="d-flex align-center mb-2">
-                                <v-icon size="18" class="mr-2 blue--text">mdi-account</v-icon>
-                                <div>
-                                    <div class="font-weight-medium">{{ item.name }}</div>
-                                    <div class="text-caption d-flex align-center">
+                                <v-icon size="18" class="mr-2" :class="item.customer_id ? 'blue--text' : 'grey--text'">mdi-account</v-icon>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-center">
+                                        <div class="font-weight-medium" :class="{'grey--text': !item.customer_id}">
+                                            {{ item.name || 'Chưa có khách hàng' }}
+                                        </div>
+                                        <v-menu offset-y>
+                                            <template v-slot:activator="{ on, attrs }">
+                                                <v-btn icon x-small :color="item.customer_id ? 'info' : 'success'" class="ml-1" v-bind="attrs" v-on="on">
+                                                    <v-icon x-small>{{ item.customer_id ? 'mdi-dots-vertical' : 'mdi-plus' }}</v-icon>
+                                                </v-btn>
+                                            </template>
+                                            <v-list dense>
+                                                <v-list-item v-if="item.customer_id" @click="editCustomerFromOrder(item)">
+                                                    <v-list-item-icon class="mr-2">
+                                                        <v-icon small color="info">mdi-pencil</v-icon>
+                                                    </v-list-item-icon>
+                                                    <v-list-item-title>Sửa thông tin</v-list-item-title>
+                                                </v-list-item>
+                                                <v-list-item @click="openChangeCustomerDialog(item)">
+                                                    <v-list-item-icon class="mr-2">
+                                                        <v-icon small :color="item.customer_id ? 'orange' : 'success'">
+                                                            {{ item.customer_id ? 'mdi-account-switch' : 'mdi-account-plus' }}
+                                                        </v-icon>
+                                                    </v-list-item-icon>
+                                                    <v-list-item-title>
+                                                        {{ item.customer_id ? 'Đổi khách hàng' : 'Thêm khách hàng' }}
+                                                    </v-list-item-title>
+                                                </v-list-item>
+                                            </v-list>
+                                        </v-menu>
+                                    </div>
+                                    <div class="text-caption d-flex align-center" v-if="item.phone">
                                         <v-icon x-small color="grey" class="mr-1">mdi-phone</v-icon>
-                                        {{ item.customer?.phone }}
+                                        {{ item.phone }}
                                     </div>
                                 </div>
                             </div>
@@ -542,24 +596,144 @@
         :open="exportDialog"
         @toggle="exportDialog = false"
     />
+
+    <!-- Update Customer Dialog -->
+    <update-customer
+        :open="updateCustomerDialog"
+        @toggle="updateCustomerDialog = false"
+        :customer="selectedCustomer"
+        @refresh="handleCustomerUpdate"
+    />
+
+    <!-- Change Customer Dialog -->
+    <v-dialog v-model="changeCustomerDialog" max-width="600" persistent>
+        <v-card class="rounded-lg">
+            <v-card-title class="headline" :class="orderToChangeCustomer?.customer_id ? 'orange--text' : 'success--text'">
+                <v-icon left :color="orderToChangeCustomer?.customer_id ? 'orange' : 'success'" size="24">
+                    {{ orderToChangeCustomer?.customer_id ? 'mdi-account-switch' : 'mdi-account-plus' }}
+                </v-icon>
+                {{ orderToChangeCustomer?.customer_id ? 'Đổi khách hàng cho đơn hàng' : 'Thêm khách hàng cho đơn hàng' }}
+            </v-card-title>
+            <v-card-text class="py-4">
+                <div v-if="orderToChangeCustomer">
+                    <div class="mb-4 pa-3 rounded" :class="orderToChangeCustomer.customer_id ? 'blue lighten-5' : 'grey lighten-4'">
+                        <div class="text-subtitle-2 mb-2">Đơn hàng hiện tại:</div>
+                        <div class="font-weight-bold">{{ orderToChangeCustomer.code }}</div>
+                        <div class="text-caption" v-if="orderToChangeCustomer.customer_id">
+                            Khách hàng hiện tại: <strong>{{ orderToChangeCustomer.name }}</strong>
+                        </div>
+                        <div class="text-caption grey--text" v-else>
+                            <v-icon x-small color="grey">mdi-alert-circle-outline</v-icon>
+                            Đơn hàng chưa có khách hàng
+                        </div>
+                    </div>
+
+                    <v-autocomplete
+                        v-model="newCustomerId"
+                        :items="customerList"
+                        item-text="name"
+                        item-value="id"
+                        :label="orderToChangeCustomer.customer_id ? 'Chọn khách hàng mới' : 'Chọn khách hàng'"
+                        placeholder="Gõ tên hoặc SĐT để tìm kiếm..."
+                        :hint="orderToChangeCustomer.customer_id ? 'Gõ ít nhất 2 ký tự để tìm kiếm, hoặc xóa để xem tất cả' : 'Chọn khách hàng để gán cho đơn hàng này'"
+                        persistent-hint
+                        outlined
+                        dense
+                        :loading="loadingCustomers"
+                        :search-input.sync="customerSearch"
+                        clearable
+                        prepend-icon="mdi-account-search"
+                        :rules="[v => !!v || 'Vui lòng chọn khách hàng']"
+                        no-data-text="Không tìm thấy khách hàng"
+                    >
+                        <template v-slot:append-outer>
+                            <v-tooltip bottom>
+                                <template v-slot:activator="{ on, attrs }">
+                                    <v-btn
+                                        icon
+                                        small
+                                        color="primary"
+                                        v-bind="attrs"
+                                        v-on="on"
+                                        @click="searchCustomers('')"
+                                        :loading="loadingCustomers"
+                                    >
+                                        <v-icon small>mdi-refresh</v-icon>
+                                    </v-btn>
+                                </template>
+                                <span>Tải lại danh sách</span>
+                            </v-tooltip>
+                        </template>
+                        <template v-slot:item="{ item }">
+                            <v-list-item-content>
+                                <v-list-item-title>{{ item.name }}</v-list-item-title>
+                                <v-list-item-subtitle>
+                                    <v-icon x-small class="mr-1">mdi-phone</v-icon>
+                                    {{ item.phone }}
+                                    <span v-if="item.email" class="ml-2">
+                                        <v-icon x-small class="mr-1">mdi-email</v-icon>
+                                        {{ item.email }}
+                                    </span>
+                                </v-list-item-subtitle>
+                            </v-list-item-content>
+                        </template>
+                        <template v-slot:selection="{ item }">
+                            <v-chip small color="primary" text-color="white">
+                                <v-icon left small>mdi-account</v-icon>
+                                {{ item.name }}
+                            </v-chip>
+                        </template>
+                    </v-autocomplete>
+
+                    <v-alert type="warning" text dense class="mt-2" v-if="orderToChangeCustomer.customer_id">
+                        <small>Lưu ý: Sau khi đổi khách hàng, thông tin đơn hàng (tên, SĐT, địa chỉ) sẽ được cập nhật theo khách hàng mới.</small>
+                    </v-alert>
+                    <v-alert type="info" text dense class="mt-2" v-else>
+                        <small>Thông tin khách hàng (tên, SĐT, địa chỉ) sẽ được cập nhật vào đơn hàng.</small>
+                    </v-alert>
+                </div>
+            </v-card-text>
+            <v-divider></v-divider>
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn text color="grey darken-1" @click="closeChangeCustomerDialog" :disabled="changingCustomer">
+                    Hủy
+                </v-btn>
+                <v-btn
+                    :color="orderToChangeCustomer?.customer_id ? 'orange' : 'success'"
+                    :loading="changingCustomer"
+                    @click="confirmChangeCustomer"
+                    :disabled="!newCustomerId"
+                    class="px-4 white--text"
+                >
+                    <v-icon left>mdi-check</v-icon>
+                    {{ orderToChangeCustomer?.customer_id ? 'Xác nhận đổi' : 'Xác nhận thêm' }}
+                </v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </div>
 </template>
 
 <script>
 import orderModule from '@/api/order'
 const orderActions = orderModule.actions
+import customerModule from '@/api/customers'
+const customerActions = customerModule.actions
 import {
     printHtmlContent
 } from '../../utils/print'
 import OrderDetail from '@/components/Dialogs/Orders/OrderDetail.vue'
 import UpdateOrder from '@/components/Dialogs/Orders/UpdateOrder.vue'
 import ExportOrdersDialog from '@/components/Dialogs/Orders/ExportOrdersDialog.vue'
+import UpdateCustomer from '@/components/Dialogs/Customers/Update.vue'
 
 export default {
     components: {
         OrderDetail,
         UpdateOrder,
-        ExportOrdersDialog
+        ExportOrdersDialog,
+        UpdateCustomer
     },
     data() {
         return {
@@ -673,7 +847,21 @@ export default {
             selectedOrderForUpdate: null,
 
             // Export orders dialog
-            exportDialog: false
+            exportDialog: false,
+
+            // Customer update dialog
+            updateCustomerDialog: false,
+            selectedCustomer: null,
+
+            // Change customer dialog
+            changeCustomerDialog: false,
+            orderToChangeCustomer: null,
+            newCustomerId: null,
+            customerList: [],
+            customerSearch: null,
+            loadingCustomers: false,
+            changingCustomer: false,
+            customerSearchTimeout: null
         }
     },
     watch: {
@@ -695,6 +883,22 @@ export default {
         filterStatus() {
             this.page = 1; // Reset to first page when filtering
             this.fetchOrders();
+        },
+
+        // Watch for customer search input
+        customerSearch(val) {
+            // Clear existing timeout
+            if (this.customerSearchTimeout) {
+                clearTimeout(this.customerSearchTimeout);
+            }
+
+            // Set new timeout for debounced search
+            this.customerSearchTimeout = setTimeout(() => {
+                // Load customers when typing (min 2 chars) or when cleared (empty)
+                if ((val && val.length >= 2) || val === '' || val === null) {
+                    this.searchCustomers(val || '');
+                }
+            }, 300); // 300ms delay
         }
     },
     computed: {
@@ -768,6 +972,130 @@ export default {
         editOrder(item) {
             this.selectedOrderForUpdate = item.id;
             this.updateDialog = true;
+        },
+
+        editCustomer(customer) {
+            this.selectedCustomer = customer;
+            this.updateCustomerDialog = true;
+        },
+
+        async editCustomerFromOrder(order) {
+            if (!order.customer_id) {
+                this.$snackbar.warning('Đơn hàng này chưa có khách hàng. Vui lòng thêm khách hàng trước.');
+                return;
+            }
+
+            try {
+                // Fetch customer data by ID
+                const response = await customerActions.getCustomerById(order.customer_id);
+                
+                if (response.status === 200) {
+                    // Check if data is nested in response
+                    const customerData = response.data.data || response.data;
+                    
+                    if (customerData && customerData.id) {
+                        this.selectedCustomer = customerData;
+                        this.updateCustomerDialog = true;
+                    } else {
+                        this.$snackbar.error('Không tìm thấy thông tin khách hàng');
+                    }
+                } else {
+                    this.$snackbar.error('Không tìm thấy thông tin khách hàng');
+                }
+            } catch (error) {
+                console.error('Error fetching customer:', error);
+                this.$snackbar.error('Không thể tải thông tin khách hàng. Vui lòng thử lại.');
+            }
+        },
+
+        handleCustomerUpdate() {
+            // Refresh orders list to get updated customer information
+            this.fetchOrders();
+            this.$snackbar.success('Cập nhật thông tin khách hàng thành công!');
+        },
+
+        openChangeCustomerDialog(order) {
+            this.orderToChangeCustomer = order;
+            this.newCustomerId = null;
+            this.customerList = [];
+            this.changeCustomerDialog = true;
+            // Load initial customers
+            this.searchCustomers('');
+        },
+
+        closeChangeCustomerDialog() {
+            this.changeCustomerDialog = false;
+            this.orderToChangeCustomer = null;
+            this.newCustomerId = null;
+            this.customerList = [];
+            this.customerSearch = null;
+        },
+
+        async searchCustomers(searchTerm) {
+            this.loadingCustomers = true;
+            try {
+                const params = {
+                    per_page: 100 // Increase to get more results
+                };
+                
+                // Only add search param if searchTerm is not empty
+                if (searchTerm && searchTerm.trim() !== '') {
+                    params.search = searchTerm.trim();
+                }
+                
+                const response = await customerActions.getCustomers(params);
+                
+                if (response.status === 200) {
+                    // Handle both nested and flat response structures
+                    const data = response.data.data || response.data;
+                    this.customerList = Array.isArray(data) ? data : [];
+                    
+                    if (this.customerList.length === 0 && searchTerm) {
+                        this.$snackbar.info(`Không tìm thấy khách hàng với từ khóa "${searchTerm}"`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading customers:', error);
+                this.$snackbar.error('Không thể tải danh sách khách hàng');
+                this.customerList = [];
+            } finally {
+                this.loadingCustomers = false;
+            }
+        },
+
+        async confirmChangeCustomer() {
+            if (!this.orderToChangeCustomer || !this.newCustomerId) return;
+
+            this.changingCustomer = true;
+            try {
+                // Call new API endpoint to change customer
+                const payload = {
+                    order_id: this.orderToChangeCustomer.id,
+                    customer_id: this.newCustomerId
+                };
+
+                const response = await orderActions.changeCustomer(payload);
+
+                if (response.status === 200) {
+                    const successMessage = this.orderToChangeCustomer.customer_id 
+                        ? 'Đổi khách hàng thành công!' 
+                        : 'Thêm khách hàng thành công!';
+                    this.$snackbar.success(successMessage);
+                    this.fetchOrders();
+                    this.closeChangeCustomerDialog();
+                } else {
+                    this.$snackbar.error('Không thể cập nhật khách hàng');
+                }
+            } catch (error) {
+                console.error('Error changing customer:', error);
+                if (error.response && error.response.data && error.response.data.message) {
+                    this.$snackbar.error(error.response.data.message);
+                } else {
+                    this.$snackbar.error('Không thể cập nhật khách hàng. Vui lòng thử lại.');
+                }
+            } finally {
+                this.changingCustomer = false;
+            }
         },
 
         openExportDialog() {
@@ -1058,6 +1386,9 @@ export default {
         // Clean up timeout to prevent memory leaks
         if (this.searchTimeout) {
             clearTimeout(this.searchTimeout);
+        }
+        if (this.customerSearchTimeout) {
+            clearTimeout(this.customerSearchTimeout);
         }
     }
 }

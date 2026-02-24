@@ -39,6 +39,11 @@ const state = () => {
       url: '/orders/payment/{id}',
       method: 'POST'
     },
+    changeCustomer:
+    {
+      url: '/orders/change-customer/{id}',
+      method: 'POST'
+    },
     exportOrders: {
       url: '/orders/export-orders',
       method: 'POST'
@@ -172,6 +177,22 @@ const actions = {
     return await axios({
       url: apiState.paymentOrder.url.replace('{id}', payload.order_id),
       method: apiState.paymentOrder.method,
+      baseURL: URL.BASE_URL,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        Authorization:
+          Cookies.get('token') != (null || undefined)
+            ? `Bearer ${Cookies.get('token')}`
+            : '',
+      },
+      data: payload,
+    });
+  },
+  async changeCustomer(payload) {
+    const apiState = state();
+    return await axios({
+      url: apiState.changeCustomer.url.replace('{id}', payload.order_id),
+      method: apiState.changeCustomer.method,
       baseURL: URL.BASE_URL,
       headers: {
         'Access-Control-Allow-Origin': '*',
