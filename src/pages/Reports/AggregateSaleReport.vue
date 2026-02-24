@@ -16,7 +16,7 @@
 
     <!-- Summary Cards -->
     <v-row class="mb-6">
-      <v-col cols="12" sm="6" md="3">
+      <v-col cols="12" sm="6" md="2-4">
         <v-card outlined class="rounded-lg pa-3 blue lighten-5">
           <v-card-text class="pa-2">
             <div class="d-flex">
@@ -38,7 +38,7 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" sm="6" md="3">
+      <v-col cols="12" sm="6" md="2-4">
         <v-card outlined class="rounded-lg pa-3 green lighten-5">
           <v-card-text class="pa-2">
             <div class="d-flex">
@@ -60,7 +60,7 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" sm="6" md="3">
+      <v-col cols="12" sm="6" md="2-4">
         <v-card outlined class="rounded-lg pa-3 deep-purple lighten-5">
           <v-card-text class="pa-2">
             <div class="d-flex">
@@ -82,7 +82,29 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" sm="6" md="3">
+      <v-col cols="12" sm="6" md="2-4">
+        <v-card outlined class="rounded-lg pa-3 orange lighten-5">
+          <v-card-text class="pa-2">
+            <div class="d-flex">
+              <div class="stats-icon orange lighten-4 mr-4">
+                <v-icon size="28" color="orange darken-2">mdi-tag-multiple</v-icon>
+              </div>
+              <div>
+                <div class="text-overline orange--text text--darken-2 mb-1">Giảm giá</div>
+                <div class="text-h5 font-weight-bold">
+                  {{ formatCurrency(getTotalDiscount()) }}
+                </div>
+                <div class="text-caption orange--text text--darken-2">
+                  <v-icon small color="orange darken-2">mdi-tag-off</v-icon>
+                  <span class="ml-1">Tổng chiết khấu</span>
+                </div>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" sm="6" md="2-4">
         <v-card outlined class="rounded-lg pa-3 amber lighten-5">
           <v-card-text class="pa-2">
             <div class="d-flex">
@@ -275,13 +297,17 @@
 
         <template v-slot:item.retail_cost="{ item }">
           <div class="font-weight-medium">{{ formatCurrency(item.retail_cost) }}</div>
+          <div v-if="hasDiscount(item)" class="text-caption orange--text d-flex align-center">
+            <v-icon x-small color="orange" class="mr-1">mdi-tag-off</v-icon>
+            <span>Giảm: {{ formatCurrency(getDiscountAmount(item)) }}</span>
+          </div>
           <div class="text-caption green--text" v-if="getProfit(item) > 0">
             <v-icon small color="green">mdi-arrow-up</v-icon>
-            {{ formatCurrency(getProfit(item)) }}
+            Lãi: {{ formatCurrency(getProfit(item)) }}
           </div>
           <div class="text-caption red--text" v-else-if="getProfit(item) < 0">
             <v-icon small color="red">mdi-arrow-down</v-icon>
-            {{ formatCurrency(Math.abs(getProfit(item))) }}
+            Lỗ: {{ formatCurrency(Math.abs(getProfit(item))) }}
           </div>
         </template>
 
@@ -360,6 +386,19 @@
                   <v-list-item-content>
                     <v-list-item-title>Doanh thu</v-list-item-title>
                     <v-list-item-subtitle>{{ formatCurrency(selectedProduct.retail_cost) }}</v-list-item-subtitle>
+                  </v-list-item-content>
+                </v-list-item>
+
+                <v-list-item v-if="hasDiscount(selectedProduct)">
+                  <v-list-item-content>
+                    <v-list-item-title>Giảm giá</v-list-item-title>
+                    <v-list-item-subtitle class="orange--text">
+                      <v-icon x-small color="orange" class="mr-1">mdi-tag-off</v-icon>
+                      {{ formatCurrency(getDiscountAmount(selectedProduct)) }}
+                      <span class="grey--text text--lighten-1 ml-1">
+                        (Trước giảm: {{ formatCurrency(selectedProduct.retail_cost_before_discount) }})
+                      </span>
+                    </v-list-item-subtitle>
                   </v-list-item-content>
                 </v-list-item>
 
@@ -590,6 +629,7 @@ export default {
         const totalProducts = data.length;
         const totalQuantity = data.reduce((sum, item) => sum + (item.quantity || 0), 0);
         const totalRevenue = data.reduce((sum, item) => sum + (item.retail_cost || 0), 0);
+        const totalDiscount = data.reduce((sum, item) => sum + (this.getDiscountAmount(item) || 0), 0);
         const totalProfit = data.reduce((sum, item) => sum + (this.getProfit(item) || 0), 0);
 
         // Create summary data
@@ -602,6 +642,7 @@ export default {
           [`Tổng sản phẩm: ${totalProducts.toLocaleString('vi-VN')}`],
           [`Tổng số lượng bán: ${totalQuantity.toLocaleString('vi-VN')}`],
           [`Tổng doanh thu: ${totalRevenue.toLocaleString('vi-VN')} VNĐ`],
+          [`Tổng giảm giá: ${totalDiscount.toLocaleString('vi-VN')} VNĐ`],
           [`Tổng lợi nhuận: ${totalProfit.toLocaleString('vi-VN')} VNĐ`],
           [''],
           ['CHI TIẾT SẢN PHẨM'],
@@ -619,6 +660,8 @@ export default {
           'Mô tả',
           'Số lượng bán',
           'Số lượng đơn vị phụ',
+          'Giá trước giảm (VNĐ)',
+          'Giảm giá (VNĐ)',
           'Doanh thu (VNĐ)',
           'Giá vốn (VNĐ)',
           'Lợi nhuận (VNĐ)',
@@ -637,6 +680,8 @@ export default {
           item.product.description || '',
           item.quantity,
           item.sub_unit_quantity || 0,
+          item.retail_cost_before_discount || item.retail_cost,
+          this.getDiscountAmount(item),
           item.retail_cost,
           item.entry_cost,
           this.getProfit(item),
@@ -654,6 +699,8 @@ export default {
           { wch: 40 },  // Mô tả
           { wch: 15 },  // Số lượng bán
           { wch: 18 },  // Số lượng đơn vị phụ
+          { wch: 18 },  // Giá trước giảm
+          { wch: 15 },  // Giảm giá
           { wch: 18 },  // Doanh thu
           { wch: 15 },  // Giá vốn
           { wch: 15 },  // Lợi nhuận
@@ -741,6 +788,20 @@ export default {
       return item.retail_cost - item.entry_cost;
     },
 
+    hasDiscount(item) {
+      // Kiểm tra xem có giảm giá không bằng cách so sánh giá trước và sau giảm
+      return item.retail_cost_before_discount && 
+             item.retail_cost_before_discount > item.retail_cost;
+    },
+
+    getDiscountAmount(item) {
+      // Tính số tiền đã giảm
+      if (item.retail_cost_before_discount) {
+        return item.retail_cost_before_discount - item.retail_cost;
+      }
+      return 0;
+    },
+
     getTotalProducts() {
       return this.reportData.length;
     },
@@ -751,6 +812,10 @@ export default {
 
     getTotalRevenue() {
       return this.reportData.reduce((sum, item) => sum + (item.retail_cost || 0), 0);
+    },
+
+    getTotalDiscount() {
+      return this.reportData.reduce((sum, item) => sum + (this.getDiscountAmount(item) || 0), 0);
     },
 
     getTotalProfit() {
