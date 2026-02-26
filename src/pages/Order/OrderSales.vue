@@ -276,6 +276,41 @@
             </v-col>
             <v-col cols="12">
               <v-row justify="space-between">
+                <v-col cols="6" justify="center">
+                  <span>Ngày tạo đơn</span>
+                </v-col>
+                <v-col cols="6" class="text-right">
+                  <v-menu
+                    v-model="dateMenu"
+                    :close-on-content-click="false"
+                    transition="scale-transition"
+                    offset-y
+                    min-width="auto"
+                  >
+                    <template v-slot:activator="{ on, attrs }">
+                      <v-text-field
+                        v-model="formattedOrderDate"
+                        prepend-inner-icon="mdi-calendar"
+                        readonly
+                        dense
+                        outlined
+                        hide-details
+                        v-bind="attrs"
+                        v-on="on"
+                      ></v-text-field>
+                    </template>
+                    <v-date-picker
+                      v-model="orderDate"
+                      @input="dateMenu = false"
+                      no-title
+                      scrollable
+                    ></v-date-picker>
+                  </v-menu>
+                </v-col>
+              </v-row>
+            </v-col>
+            <v-col cols="12">
+              <v-row justify="space-between">
                 <v-col cols="6">
                   <span>{{ changeLabel }}</span>
                 </v-col>
@@ -333,6 +368,8 @@ export default {
       searchQuery: '',
       isSearching: false,
       debounceTimeout: null,
+      orderDate: new Date().toISOString().substr(0, 10), // Default to current date (YYYY-MM-DD)
+      dateMenu: false, // Control date picker menu
       // Validation rules
       quantityRules: {
         positive: value => value > 0 || 'Số lượng phải lớn hơn 0'
@@ -425,6 +462,13 @@ export default {
 
     changeLabel() {
       return this.change >= 0 ? "Tiền thừa trả khách" : "Khách cần trả thêm";
+    },
+
+    // Format order date for display (DD/MM/YYYY)
+    formattedOrderDate() {
+      if (!this.orderDate) return '';
+      const [year, month, day] = this.orderDate.split('-');
+      return `${day}/${month}/${year}`;
     }
   },
   methods: {
@@ -542,8 +586,8 @@ export default {
           if (response.status === 200) {
             this.orderId = response.data.data.id;
             this.$snackbar.success("Đơn hàng đã được tạo thành công");
-            this.reset();
             this.printOrder();
+            this.reset();
           }
           else{
             this.$snackbar.error("Đã có lỗi xảy ra trong quá trình tạo đơn hàng");
@@ -564,6 +608,7 @@ export default {
       this.orderDiscount = 0;
       this.formattedOrderDiscount = "0";
       this.orderDiscountType = 2;
+      this.orderDate = new Date().toISOString().substr(0, 10); // Reset to current date
       this.listProduct = [];
       this.listCustomer = [];
       this.fetchProducts();
@@ -601,6 +646,7 @@ export default {
         final_amount: this.amountDue,
         status: this.orderStatus,
         type: 1,
+        create_date: this.orderDate, // Backend expects 'create_date' field
       };
       return orderData;
     },
