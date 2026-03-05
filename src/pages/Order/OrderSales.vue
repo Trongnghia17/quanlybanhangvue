@@ -41,12 +41,25 @@
         </template>
       </v-autocomplete>
       <v-spacer></v-spacer>
-           <v-btn icon @click="fetchProducts">
-             <v-icon>mdi-refresh</v-icon>
-           </v-btn>
-           <v-btn icon>
-             <v-icon>mdi-plus</v-icon>
-           </v-btn>
+      <v-tooltip bottom>
+        <template v-slot:activator="{ on, attrs }">
+          <v-icon 
+            small 
+            class="mr-2" 
+            v-bind="attrs" 
+            v-on="on"
+          >
+            mdi-information
+          </v-icon>
+        </template>
+        <span>Bạn có thể thêm cùng một sản phẩm nhiều lần<br/>để có dòng bán và dòng tặng riêng biệt</span>
+      </v-tooltip>
+      <v-btn icon @click="fetchProducts">
+        <v-icon>mdi-refresh</v-icon>
+      </v-btn>
+      <v-btn icon>
+        <v-icon>mdi-plus</v-icon>
+      </v-btn>
     </v-app-bar>
 
     <v-row no-gutters class="flex-grow-1">
@@ -67,10 +80,10 @@
               v-if="selectedProducts?.length > 0"
               cols="12"
               v-for="(item, index) in selectedProducts"
-              :key="index"
+              :key="item._uniqueKey || index"
             >
 
-              <v-card outlined>
+              <v-card outlined :class="{'gift-item': item.is_gift}">
                 <v-card-title>
                   <v-row justify="space-between" align="center">
                     <v-col cols="1">
@@ -91,6 +104,14 @@
                     <v-col cols="2">
                       <v-row align="center">
                         <span class="ml-2">{{ item.name }}</span>
+                        <v-chip 
+                          v-if="item.is_gift" 
+                          x-small 
+                          color="success" 
+                          class="ml-2"
+                        >
+                          Tặng
+                        </v-chip>
                       </v-row>
                     </v-col>
                     <v-col cols="1" class="text-right">
@@ -106,10 +127,20 @@
                         @keypress="preventNegativeNumber"
                       ></v-text-field>
                     </v-col>
-                    <v-col cols="2" class="text-right">
+                    <v-col cols="1" class="text-center">
+                      <v-checkbox
+                        v-model="item.is_gift"
+                        label="Tặng"
+                        dense
+                        hide-details
+                        @change="onGiftStatusChange(item)"
+                      ></v-checkbox>
+                    </v-col>
+                    <v-col cols="1" class="text-right">
                       <v-text-field
+                        v-if="!item.is_gift"
                         placeholder="Chiết khấu"
-                        label="Chiết khấu"
+                        label="CK"
                         :value="item.formattedDiscount || '0'"
                         min="0"
                         dense
@@ -146,9 +177,15 @@
                           </v-btn>
                         </template>
                       </v-text-field>
+                      <span v-else class="grey--text">Không áp dụng</span>
                     </v-col>
-                    <v-col cols="3" class="text-right">
-                      {{formatCurrency(getProductPrice(item))}}
+                    <v-col cols="2" class="text-right">
+                      <span v-if="item.is_gift" class="success--text font-weight-bold">
+                        MIỄN PHÍ
+                      </span>
+                      <span v-else>
+                        {{formatCurrency(getProductPrice(item))}}
+                      </span>
                     </v-col>
                   </v-row>
                 </v-card-title>
@@ -425,6 +462,10 @@ export default {
     // Calculate the sum of product prices after applying individual product discounts
     totalProductsAfterDiscount() {
       return this.selectedProducts.reduce((sum, product) => {
+        // Không tính hàng tặng vào tổng tiền
+        if (product.is_gift) {
+          return sum;
+        }
         return sum + this.getProductPrice(product);
       }, 0);
     },
@@ -432,6 +473,10 @@ export default {
     // Calculate the total amount from all selected products before any discounts
     totalAmount() {
       return this.selectedProducts.reduce((sum, product) => {
+        // Không tính hàng tặng vào tổng tiền
+        if (product.is_gift) {
+          return sum;
+        }
         return sum + (product.retail_cost * product.quantity);
       }, 0);
     },
@@ -472,6 +517,15 @@ export default {
     }
   },
   methods: {
+    // Phương thức mới để xử lý khi thay đổi trạng thái hàng tặng
+    onGiftStatusChange(item) {
+      if (item.is_gift) {
+        // Nếu là hàng tặng, reset discount về 0
+        item.discount = 0;
+        item.formattedDiscount = '0';
+      }
+    },
+    
     // Phương thức mới để tìm kiếm sản phẩm theo từ khóa
     getProductPrice(item) {
       item.discount = parseFloat(item.discount) || 0;
@@ -487,7 +541,10 @@ export default {
       return unitPrice * quantity;
     },
     removeProduct(item) {
-      const index = this.selectedProducts.findIndex(product => product.id === item.id);
+      // Sử dụng _uniqueKey để xóa đúng dòng sản phẩm
+      const index = this.selectedProducts.findIndex(product => 
+        product._uniqueKey ? product._uniqueKey === item._uniqueKey : product.id === item.id
+      );
       if (index !== -1) {
         this.selectedProducts.splice(index, 1);
       }
@@ -656,9 +713,10 @@ export default {
         const product = {
           product_id: item.id,
           quantity: item.quantity,
-          discount: item.discount,
+          discount: item.is_gift ? 0 : item.discount, // Hàng tặng không có chiết khấu
           discount_type: item.discountType,
           price: item.retail_cost,
+          is_gift: item.is_gift ? 1 : 0, // Gửi trạng thái hàng tặng
         };
         orderDetails.push(product);
       });
@@ -713,29 +771,29 @@ export default {
     addProductToOrder(item) {
       // Check if product can be sold (not negative inventory)
       const selectedProduct = this.listProduct.find(product => product.id === item.id);
-      const existingProduct = this.selectedProducts.find(product => product.id === item.id);
+      
+      // Tính tổng số lượng sản phẩm này trong đơn (cả bán và tặng)
+      const totalQuantityInOrder = this.selectedProducts
+        .filter(product => product.id === item.id)
+        .reduce((sum, product) => sum + product.quantity, 0);
 
       // Check inventory constraints
-      if ((selectedProduct.is_buy_always && selectedProduct.temporality <= 0) ||
-          (existingProduct && existingProduct.is_buy_always && existingProduct.temporality <= 0)) {
+      if (selectedProduct.is_buy_always && selectedProduct.temporality <= totalQuantityInOrder) {
         this.$snackbar.warning('Sản phẩm này không thể bán âm!');
         return;
       }
 
-      // Add to order or increment quantity
-      if (existingProduct) {
-        // Ensure quantity is always at least 1
-        const newQuantity = existingProduct.quantity + 1;
-        existingProduct.quantity = Math.max(1, newQuantity);
-      } else {
-        // Add new product with formatted values and ensure quantity is positive
-        const newProduct = {...item, quantity: 1};
-        // Use discount from product configuration
-        newProduct.discountType = item.discount_type || item.discountType || 1;
-        newProduct.discount = item.discount || 0;
-        newProduct.formattedDiscount = this.formatNumber(newProduct.discount);
-        this.selectedProducts.push(newProduct);
-      }
+      // Luôn thêm sản phẩm mới thay vì gộp (để có thể có nhiều dòng cùng sản phẩm)
+      // Tạo unique key để phân biệt các dòng
+      const uniqueKey = Date.now() + Math.random();
+      const newProduct = {...item, quantity: 1, _uniqueKey: uniqueKey};
+      
+      // Use discount from product configuration
+      newProduct.discountType = item.discount_type || item.discountType || 1;
+      newProduct.discount = item.discount || 0;
+      newProduct.formattedDiscount = this.formatNumber(newProduct.discount);
+      newProduct.is_gift = false; // Khởi tạo trạng thái không phải hàng tặng
+      this.selectedProducts.push(newProduct);
 
       // Clear search to allow selecting another product
       this.searchProduct = null;
@@ -823,5 +881,11 @@ export default {
 .active-discount-type {
   background-color: #61cf67 !important;
   color: rgb(164, 17, 184) !important;
+}
+
+/* Style cho hàng tặng */
+.gift-item {
+  background-color: #f1f8f4 !important;
+  border-left: 4px solid #4caf50 !important;
 }
 </style>

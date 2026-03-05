@@ -112,6 +112,11 @@
                         Xuất Excel
                     </v-btn>
 
+                    <!-- <v-btn color="error lighten-1" class="mr-2 text-none rounded-lg" elevation="0" @click="openExportPdfDialog">
+                        <v-icon left small>mdi-file-pdf-box</v-icon>
+                        Xuất PDF
+                    </v-btn> -->
+
                     <v-btn color="primary" dark :to="'/order-sales'" class="px-4 font-weight-medium text-none rounded-lg" elevation="2">
                         <v-icon left>mdi-plus</v-icon>
                         Tạo đơn hàng mới
@@ -712,6 +717,15 @@
             </v-card-actions>
         </v-card>
     </v-dialog>
+
+    <!-- Export Orders Dialog -->
+    <ExportOrdersDialog :open="exportDialog" @toggle="exportDialog = false" />
+
+    <!-- Export PDF Dialog -->
+    <ExportPDFDialog :open="exportPdfDialog" @toggle="exportPdfDialog = false" />
+
+    <!-- Update Customer Dialog -->
+    <UpdateCustomer :open="updateCustomerDialog" @toggle="updateCustomerDialog = false" :customerId="selectedCustomer" @updated="handleCustomerUpdated" />
 </div>
 </template>
 
@@ -726,6 +740,7 @@ import {
 import OrderDetail from '@/components/Dialogs/Orders/OrderDetail.vue'
 import UpdateOrder from '@/components/Dialogs/Orders/UpdateOrder.vue'
 import ExportOrdersDialog from '@/components/Dialogs/Orders/ExportOrdersDialog.vue'
+import ExportPDFDialog from '@/components/Dialogs/Orders/ExportPDFDialog.vue'
 import UpdateCustomer from '@/components/Dialogs/Customers/Update.vue'
 
 export default {
@@ -733,6 +748,7 @@ export default {
         OrderDetail,
         UpdateOrder,
         ExportOrdersDialog,
+        ExportPDFDialog,
         UpdateCustomer
     },
     data() {
@@ -848,6 +864,9 @@ export default {
 
             // Export orders dialog
             exportDialog: false,
+            
+            // Export PDF dialog
+            exportPdfDialog: false,
 
             // Customer update dialog
             updateCustomerDialog: false,
@@ -1100,6 +1119,10 @@ export default {
 
         openExportDialog() {
             this.exportDialog = true;
+        },
+
+        openExportPdfDialog() {
+            this.exportPdfDialog = true;
         },
 
         fetchOrders() {

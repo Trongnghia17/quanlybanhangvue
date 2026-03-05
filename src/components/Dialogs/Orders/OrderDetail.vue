@@ -138,7 +138,17 @@
                     <v-icon color="grey">mdi-package-variant</v-icon>
                   </v-avatar>
                   <div>
-                    <div class="font-weight-medium">{{ item.product?.name || 'Sản phẩm không xác định' }}</div>
+                    <div class="d-flex align-center">
+                      <div class="font-weight-medium">{{ item.product?.name || 'Sản phẩm không xác định' }}</div>
+                      <v-chip 
+                        v-if="item.is_gift == 1" 
+                        x-small 
+                        color="success" 
+                        class="ml-2"
+                      >
+                        Tặng
+                      </v-chip>
+                    </div>
                     <div class="text-caption grey--text" v-if="item.product?.sku">SKU: {{ item.product?.sku }}</div>
                     <div class="text-caption grey--text" v-if="item.product?.unit">Đơn vị: {{ item.product?.unit }}</div>
                   </div>
@@ -146,18 +156,31 @@
               </template>
 
               <template v-slot:item.price="{ item }">
-                {{ formatCurrency(item.user_cost) }}
+                <span v-if="item.is_gift == 1" class="success--text font-weight-bold">
+                  MIỄN PHÍ
+                </span>
+                <span v-else>
+                  {{ formatCurrency(item.user_cost) }}
+                </span>
               </template>
 
               <template v-slot:item.discount="{ item }">
-                <span v-if="item.discount && item.discount > 0">
+                <span v-if="item.is_gift == 1">
+                  -
+                </span>
+                <span v-else-if="item.discount && item.discount > 0">
                   {{ item.discount_type === 1 ? `${item.discount}%` : formatCurrency(item.discount) }}
                 </span>
                 <span v-else>-</span>
               </template>
 
               <template v-slot:item.total="{ item }">
-                {{ formatCurrency(calculateItemTotal(item)) }}
+                <span v-if="item.is_gift == 1" class="success--text font-weight-bold">
+                  MIỄN PHÍ
+                </span>
+                <span v-else>
+                  {{ formatCurrency(calculateItemTotal(item)) }}
+                </span>
               </template>
             </v-data-table>
           </v-card>
