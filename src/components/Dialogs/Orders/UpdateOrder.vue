@@ -51,7 +51,7 @@
                   </div>
                   <div class="d-flex justify-space-between mb-2">
                     <span class="text-body-2 grey--text">Ngày tạo:</span>
-                    <span>{{ formatDateTime(order.created_at) }}</span>
+                    <span>{{ order.create_date ? formatDate(order.create_date) : formatDateTime(order.created_at) }}</span>
                   </div>
                   <div class="d-flex justify-space-between mb-2" v-if="order.updated_at">
                     <span class="text-body-2 grey--text">Cập nhật lúc:</span>
@@ -926,6 +926,11 @@ export default {
         style: 'currency',
         currency: 'VND'
       })
+    },
+    formatDate(dateString) {
+      if (!dateString) return 'N/A'
+      const [year, month, day] = dateString.split('-')
+      return `${day}/${month}/${year}`
     },
     formatDateTime(dateString) {
       if (!dateString) return 'N/A'

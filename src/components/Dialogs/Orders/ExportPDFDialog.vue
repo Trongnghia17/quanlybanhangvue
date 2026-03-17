@@ -184,6 +184,13 @@ export default {
 
     formatDate(dateString) {
       if (!dateString) return '';
+
+      // Handle plain date strings like "2026-03-09" reliably (avoid timezone shifting)
+      if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const [y, m, d] = dateString.split('-').map(Number)
+        return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.${y}`
+      }
+
       const date = new Date(dateString);
       const day = String(date.getDate()).padStart(2, '0');
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -217,8 +224,18 @@ export default {
           per_page: 1000, // Get all orders
           with: 'orderItems,orderItems.product' // Include related data
         };
-        if (this.form.from) payload.from = this.form.from;
-        if (this.form.to) payload.to = this.form.to;
+        // Backend OrderRepository currently filters by `start_date`/`end_date` (updated_at)
+        // The UI uses from/to, so we map it here.
+        if (this.form.from) {
+          payload.from = this.form.from;
+          payload.start_date = this.form.from;
+          payload.create_date_from = this.form.from;
+        }
+        if (this.form.to) {
+          payload.to = this.form.to;
+          payload.end_date = this.form.to;
+          payload.create_date_to = this.form.to;
+        }
 
         console.log('Fetching orders with payload:', payload);
 
@@ -321,10 +338,10 @@ export default {
           throw new Error('autoTable is not available on jsPDF instance');
         }
 
-        // Group orders by date
+        // Group orders by business date (create_date) when available
         const ordersByDate = {};
         orders.forEach(order => {
-          const orderDate = this.formatDate(order.created_at);
+          const orderDate = this.formatDate(order.create_date || order.created_at);
           if (!ordersByDate[orderDate]) {
             ordersByDate[orderDate] = [];
           }
@@ -336,10 +353,66 @@ export default {
         // Use built-in fonts
         doc.setFont('helvetica');
 
-      let currentY = 15;
-      let isFirstPage = true;
+      // Helpers aligned with backend OrderDetailResource
+      const getSoldQty = (item) => Number(item?.quantity ?? 0)
+      const getGiftQty = (item) =>
+        Number(item?.gift_quantity ?? item?.gift_qty ?? item?.quantity_gift ?? item?.qty_gift ?? 0)
+      const getLineAmount = (item) => {
+        const retailCost = Number(item?.retail_cost ?? 0)
+        if (Number.isFinite(retailCost) && retailCost > 0) return retailCost
 
-      // Sort dates in descending order (newest first)
+        const unitPrice = Number(item?.price ?? item?.unit_price ?? item?.retail_price ?? 0)
+        const qty = Number(item?.quantity ?? 0)
+        return unitPrice * qty
+      }
+
+      const getCustomerName = (order) =>
+        order?.customer?.name || order?.name || order?.customer_name || ''
+
+      const getUnitName = (item) => {
+        // Best-effort: backend ProductResource structure may vary
+        return (
+          item?.unit_name ||
+          item?.unit ||
+          item?.product?.unit_name ||
+          item?.product?.unit?.name ||
+          item?.product?.unit ||
+          item?.size ||
+          ''
+        )
+      }
+
+      const getUnitPrice = (item) => {
+        // Prefer per-unit base if present; otherwise derive from line total / quantity
+        const perUnit = Number(item?.retail_cost_base ?? item?.user_cost ?? item?.base_cost_base ?? 0)
+        if (Number.isFinite(perUnit) && perUnit > 0) return perUnit
+
+        const qty = Number(item?.quantity ?? 0)
+        const line = Number(item?.retail_cost ?? 0)
+        if (qty > 0 && Number.isFinite(line) && line > 0) return line / qty
+
+        return Number(item?.price ?? item?.unit_price ?? item?.retail_price ?? 0)
+      }
+
+      const getOrderTotal = (order) => Number(order?.retail_cost ?? order?.total_money ?? 0)
+
+      const getOrderPaid = (order) => {
+        // Backend sends order_payment array; OrderResource also calculates debt
+        if (typeof order?.paid === 'number') return order.paid
+
+        const payments = Array.isArray(order?.order_payment) ? order.order_payment : []
+        return payments.reduce((sum, p) => sum + Number(p?.price ?? 0), 0)
+      }
+
+      const getOrderDebt = (order) => {
+        if (typeof order?.debt === 'number') return order.debt
+        const total = getOrderTotal(order)
+        const paid = getOrderPaid(order)
+        return total - paid
+      }
+
+  let currentY = 15;
+      let isFirstPage = true;
       const sortedDates = Object.keys(ordersByDate).sort((a, b) => {
         const [dayA, monthA, yearA] = a.split('.');
         const [dayB, monthB, yearB] = b.split('.');
@@ -357,20 +430,29 @@ export default {
 
         const dateOrders = ordersByDate[date];
 
-        // Title
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        const title = `BAO CAO DOANH THU NGAY ${date}`;
-        const pageWidth = doc.internal.pageSize.getWidth();
-        doc.text(title, pageWidth / 2, currentY, { align: 'center' });
-        currentY += 10;
+  // Title (keep per-day pages)
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  const title = `BAO CAO DOANH THU NGAY ${date}`;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.text(title, pageWidth / 2, currentY, { align: 'center' });
+  currentY += 10;
 
-        // Calculate total revenue for the day
-        let totalRevenue = 0;
-        const tableData = [];
+  // Calculate total revenue for the day
+  let totalRevenue = 0;
+  const tableData = [];
 
         dateOrders.forEach(order => {
           totalRevenue += order.retail_cost || 0;
+
+          // Requested: prefer backend `create_date` (often business/local date) over `created_at`
+          const orderCreatedDateRaw = order.create_date || order.created_at
+          const orderCreatedDate = this.formatDate(orderCreatedDateRaw)
+          const orderCode = order.code || ''
+          const customerName = this.convertVietnameseToLatin(getCustomerName(order))
+          const orderTotal = getOrderTotal(order)
+          const orderPaid = getOrderPaid(order)
+          const orderDebt = getOrderDebt(order)
 
           // Get order items from order_detail (backend field), order_items, or items
           const orderItems = order.order_detail || order.order_items || order.items || [];
@@ -392,20 +474,26 @@ export default {
                   ''
                 );
                 const note = this.convertVietnameseToLatin(order.note || '');
-                
-                const itemPrice = parseFloat(item.price || item.unit_price) || 0;
-                const itemQuantity = parseInt(item.quantity) || 0;
-                const quantitySale = parseInt(item.quantity_sale || item.gift_quantity) || 0;
-                
+
+                const soldQty = getSoldQty(item);
+                const giftQty = getGiftQty(item);
+                const amount = getLineAmount(item);
+
+                const unitName = this.convertVietnameseToLatin(getUnitName(item))
+                const unitPrice = getUnitPrice(item)
+
                 const row = [
-                  date,
-                  order.code || '',
+                  orderCreatedDate,
+                  orderCode,
+                  customerName,
                   productName,
-                  itemQuantity,
-                  quantitySale,
-                  this.formatCurrency(itemPrice * itemQuantity),
-                  salesName,
-                  note
+                  soldQty,
+                  unitName,
+                  this.formatCurrency(unitPrice),
+                  this.formatCurrency(amount),
+                  this.formatCurrency(orderTotal),
+                  this.formatCurrency(orderPaid),
+                  this.formatCurrency(orderDebt)
                 ];
                 tableData.push(row);
               } catch (itemError) {
@@ -419,14 +507,17 @@ export default {
               const note = this.convertVietnameseToLatin(order.note || '');
               
               const row = [
-                date,
-                order.code || '',
+                orderCreatedDate,
+                orderCode,
+                customerName,
                 'Khong co san pham',
                 0,
-                0,
+                '',
+                this.formatCurrency(0),
                 this.formatCurrency(order.retail_cost || 0),
-                salesName,
-                note
+                this.formatCurrency(orderTotal),
+                this.formatCurrency(orderPaid),
+                this.formatCurrency(orderDebt)
               ];
               tableData.push(row);
             } catch (orderError) {
@@ -435,33 +526,36 @@ export default {
           }
         });
 
-        // Add total revenue row
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        const totalText = `Tong doanh thu ngay ${date}`;
-        const totalAmount = this.formatCurrency(totalRevenue);
-        doc.text(totalText, 14, currentY);
-        doc.text(totalAmount, pageWidth - 14, currentY, { align: 'right' });
-        currentY += 8;
+  // Add total revenue row
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  const totalText = `Tong doanh thu ngay ${date}`;
+  const totalAmount = this.formatCurrency(totalRevenue);
+  doc.text(totalText, 14, currentY);
+  doc.text(totalAmount, pageWidth - 14, currentY, { align: 'right' });
+  currentY += 8;
 
         // Create table
         doc.autoTable({
           startY: currentY,
           head: [[
-            'Ngay',
-            'Don',
-            'San pham ban',
-            'So luong ban',
-            'So luong tang',
-            'So tien',
-            'Sales',
-            'Note'
+            'Ngay tao don',
+            'Ma don hang',
+            'Khach hang',
+            'San pham',
+            'So luong',
+            'Don vi',
+            'Don gia',
+            'Thanh tien',
+            'Tong tien',
+            'Da thanh toan',
+            'Con no'
           ]],
           body: tableData,
           styles: {
             font: 'helvetica',
-            fontSize: 9,
-            cellPadding: 2,
+            fontSize: 8,
+            cellPadding: 1.5,
             overflow: 'linebreak',
             halign: 'left'
           },
@@ -473,18 +567,21 @@ export default {
             valign: 'middle'
           },
           columnStyles: {
-            0: { cellWidth: 25 }, // Date
-            1: { cellWidth: 25 }, // Order code
-            2: { cellWidth: 60 }, // Product name
-            3: { cellWidth: 22, halign: 'center' }, // Quantity sold
-            4: { cellWidth: 22, halign: 'center' }, // Quantity gift
-            5: { cellWidth: 30, halign: 'right' }, // Amount
-            6: { cellWidth: 30 }, // Sales
-            7: { cellWidth: 50 } // Note
+            0: { cellWidth: 18 }, // Created date
+            1: { cellWidth: 22 }, // Code
+            2: { cellWidth: 26 }, // Customer
+            3: { cellWidth: 58 }, // Product
+            4: { cellWidth: 14, halign: 'center' }, // Qty
+            5: { cellWidth: 14 }, // Unit
+            6: { cellWidth: 20, halign: 'right' }, // Unit price
+            7: { cellWidth: 22, halign: 'right' }, // Line total
+            8: { cellWidth: 22, halign: 'right' }, // Order total
+            9: { cellWidth: 22, halign: 'right' }, // Paid
+            10: { cellWidth: 20, halign: 'right' } // Debt
           },
           margin: { left: 10, right: 10 },
           theme: 'grid',
-          tableWidth: 'auto'
+          tableWidth: 'wrap'
         });
       });
 
