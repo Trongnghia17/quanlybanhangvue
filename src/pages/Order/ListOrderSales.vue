@@ -112,6 +112,11 @@
                         Xuất Excel
                     </v-btn>
 
+                    <v-btn color="error lighten-1" class="mr-2 text-none rounded-lg" elevation="0" @click="openExportPdfDialog">
+                        <v-icon left small>mdi-file-pdf-box</v-icon>
+                        Xuất PDF
+                    </v-btn>
+
                     <v-btn color="primary" dark :to="'/order-sales'" class="px-4 font-weight-medium text-none rounded-lg" elevation="2">
                         <v-icon left>mdi-plus</v-icon>
                         Tạo đơn hàng mới
@@ -260,12 +265,12 @@
                 </div>
             </template>
 
-            <template v-slot:item.created_at="{ item }">
+            <template v-slot:item.create_date="{ item }">
                 <div class="d-flex align-center">
                     <v-icon small color="grey" class="mr-1">mdi-calendar</v-icon>
-                    <span>{{ formatDate(item.created_at) }}</span>
+                    <span>{{ formatDate(item.create_date || item.created_at) }}</span>
                 </div>
-                <div class="d-flex align-center mt-1">
+                <div class="d-flex align-center mt-1" v-if="!item.create_date">
                     <v-icon small color="grey" class="mr-1">mdi-clock-outline</v-icon>
                     <span class="text-caption grey--text">{{ formatTime(item.created_at) }}</span>
                 </div>
@@ -354,7 +359,7 @@
                         <v-card-subtitle class="pb-0 pt-1 d-flex justify-space-between">
                             <div class="d-flex align-center">
                                 <v-icon x-small color="grey" class="mr-1">mdi-calendar</v-icon>
-                                <span class="grey--text">{{ formatDate(item.created_at) }}</span>
+                                <span class="grey--text">{{ formatDate(item.create_date || item.created_at) }}</span>
                             </div>
                             <span class="font-weight-bold green--text">
                                 {{ formatCurrency(item.retail_cost) }}
@@ -712,6 +717,15 @@
             </v-card-actions>
         </v-card>
     </v-dialog>
+
+    <!-- Export Orders Dialog -->
+    <ExportOrdersDialog :open="exportDialog" @toggle="exportDialog = false" />
+
+    <!-- Export PDF Dialog -->
+    <ExportPDFDialog :open="exportPdfDialog" @toggle="exportPdfDialog = false" />
+
+    <!-- Update Customer Dialog -->
+    <UpdateCustomer :open="updateCustomerDialog" @toggle="updateCustomerDialog = false" :customerId="selectedCustomer" @updated="handleCustomerUpdated" />
 </div>
 </template>
 
@@ -726,6 +740,7 @@ import {
 import OrderDetail from '@/components/Dialogs/Orders/OrderDetail.vue'
 import UpdateOrder from '@/components/Dialogs/Orders/UpdateOrder.vue'
 import ExportOrdersDialog from '@/components/Dialogs/Orders/ExportOrdersDialog.vue'
+import ExportPDFDialog from '@/components/Dialogs/Orders/ExportPDFDialog.vue'
 import UpdateCustomer from '@/components/Dialogs/Customers/Update.vue'
 
 export default {
@@ -733,6 +748,7 @@ export default {
         OrderDetail,
         UpdateOrder,
         ExportOrdersDialog,
+        ExportPDFDialog,
         UpdateCustomer
     },
     data() {
@@ -782,7 +798,7 @@ export default {
                 },
                 {
                     text: 'Ngày tạo',
-                    value: 'created_at',
+                    value: 'create_date',
                     width: '120px'
                 },
                 {
@@ -848,6 +864,9 @@ export default {
 
             // Export orders dialog
             exportDialog: false,
+            
+            // Export PDF dialog
+            exportPdfDialog: false,
 
             // Customer update dialog
             updateCustomerDialog: false,
@@ -914,6 +933,11 @@ export default {
         }
     },
     methods: {
+        handleCustomerUpdated() {
+            // After updating customer info, refresh orders list to reflect changes
+            this.fetchOrders();
+        },
+
         cancelOrder(item) {
             this.orderToCancel = item;
             this.cancelDialog = true;
@@ -1100,6 +1124,10 @@ export default {
 
         openExportDialog() {
             this.exportDialog = true;
+        },
+
+        openExportPdfDialog() {
+            this.exportPdfDialog = true;
         },
 
         fetchOrders() {

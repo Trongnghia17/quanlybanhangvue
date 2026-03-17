@@ -213,12 +213,12 @@
                 </div>
             </template>
 
-            <template v-slot:item.created_at="{ item }">
+            <template v-slot:item.create_date="{ item }">
                 <div class="d-flex align-center">
                     <v-icon small color="grey" class="mr-1">mdi-calendar</v-icon>
-                    <span>{{ formatDate(item.created_at) }}</span>
+                    <span>{{ formatDate(item.create_date || item.created_at) }}</span>
                 </div>
-                <div class="d-flex align-center mt-1">
+                <div class="d-flex align-center mt-1" v-if="!item.create_date">
                     <v-icon small color="grey" class="mr-1">mdi-clock-outline</v-icon>
                     <span class="text-caption grey--text">{{ formatTime(item.created_at) }}</span>
                 </div>
@@ -301,7 +301,7 @@
                         </v-card-title>
 
                         <v-card-subtitle class="pb-0 pt-1 d-flex justify-space-between">
-                            <span>{{ formatDate(item.created_at) }}</span>
+                            <span>{{ formatDate(item.create_date || item.created_at) }}</span>
                             <span class="font-weight-bold">
                                 {{ formatCurrency(item.base_cost) }}
                             </span>
@@ -569,7 +569,7 @@ export default {
                 },
                 {
                     text: 'Ngày tạo',
-                    value: 'created_at',
+                    value: 'create_date',
                     width: '120px'
                 },
                 {
