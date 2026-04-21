@@ -177,9 +177,18 @@ export default {
       return true;
     },
     
+    // Lưu ý: font mặc định của jsPDF không hỗ trợ ký tự "₫",
+    // nên nếu dùng sẽ bị hiển thị thành ký tự lạ «.
+    // Ở đây chỉ dùng số, nếu cần thì thêm hậu tố "VNĐ" ở text ngoài bảng.
     formatCurrency(value) {
-      if (!value && value !== 0) return '0 ₫';
-      return value.toLocaleString('vi-VN') + ' ₫';
+      if (!value && value !== 0) return '0';
+      return Number(value).toLocaleString('vi-VN');
+    },
+
+    // Format number without currency symbol (for summary like "565.000VNĐ")
+    formatNumberVN(value) {
+      if (!value && value !== 0) return '0';
+      return Number(value).toLocaleString('vi-VN');
     },
 
     formatDate(dateString) {
@@ -198,7 +207,7 @@ export default {
       return `${day}.${month}.${year}`;
     },
 
-    async loadFont() {
+  async loadFont() {
       // Load Vietnamese font for PDF
       const fontUrl = 'https://cdn.jsdelivr.net/npm/@canvas-fonts/roboto@1.0.3/Roboto-Regular.ttf';
       
@@ -320,7 +329,7 @@ export default {
       }
     },
 
-    async generatePDF(orders) {
+  async generatePDF(orders) {
       try {
         console.log('Starting PDF generation with', orders.length, 'orders');
 
@@ -339,17 +348,6 @@ export default {
         }
 
         // Group orders by business date (create_date) when available
-        const ordersByDate = {};
-        orders.forEach(order => {
-          const orderDate = this.formatDate(order.create_date || order.created_at);
-          if (!ordersByDate[orderDate]) {
-            ordersByDate[orderDate] = [];
-          }
-          ordersByDate[orderDate].push(order);
-        });
-
-        console.log('Orders grouped by date:', Object.keys(ordersByDate).length, 'dates');
-
         // Use built-in fonts
         doc.setFont('helvetica');
 
@@ -410,180 +408,316 @@ export default {
         const paid = getOrderPaid(order)
         return total - paid
       }
+      // ===== New layout: "CUA HANG / Dia chi / Hotline" + single table + period summary =====
 
-  let currentY = 15;
-      let isFirstPage = true;
-      const sortedDates = Object.keys(ordersByDate).sort((a, b) => {
-        const [dayA, monthA, yearA] = a.split('.');
-        const [dayB, monthB, yearB] = b.split('.');
-        const dateA = new Date(yearA, monthA - 1, dayA);
-        const dateB = new Date(yearB, monthB - 1, dayB);
-        return dateB - dateA;
-      });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const centerX = pageWidth / 2;
 
-      sortedDates.forEach((date) => {
-        if (!isFirstPage) {
-          doc.addPage();
-          currentY = 15;
+      // Get store info from localStorage (user_info) or first order's user
+      const userInfo = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('user_info') || '{}') || {};
+        } catch (e) {
+          return {};
         }
-        isFirstPage = false;
+      })();
 
-        const dateOrders = ordersByDate[date];
+      const firstOrderUser = orders[0]?.user || {};
 
-  // Title (keep per-day pages)
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  const title = `BAO CAO DOANH THU NGAY ${date}`;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  doc.text(title, pageWidth / 2, currentY, { align: 'center' });
-  currentY += 10;
+      // Thông tin cửa hàng mặc định nếu không lấy được từ user_info
+      // const defaultStoreName = 'AAIPHARMA 32 DAI TU';
+      // const defaultStoreAddress = 'SH02.HH3B.EcoLakeView Dai Tu';
+      // const defaultStorePhone = '0888472589';
 
-  // Calculate total revenue for the day
-  let totalRevenue = 0;
-  const tableData = [];
+      const defaultStoreName = 'AAIPHARMA 66B HOANG HOA THAM';
+      const defaultStoreAddress = '66B Hoang Hoa Tham, Thuy Khue, Ha Noi';
+      const defaultStorePhone = '0848872589';
 
-        dateOrders.forEach(order => {
-          totalRevenue += order.retail_cost || 0;
+      const storeName = this.convertVietnameseToLatin(
+        userInfo.store_name || firstOrderUser.store_name || defaultStoreName
+      );
+      const storeAddress = this.convertVietnameseToLatin(
+        userInfo.address || defaultStoreAddress
+      );
+      const storePhone = userInfo.phone || defaultStorePhone;
 
-          // Requested: prefer backend `create_date` (often business/local date) over `created_at`
-          const orderCreatedDateRaw = order.create_date || order.created_at
-          const orderCreatedDate = this.formatDate(orderCreatedDateRaw)
-          const orderCode = order.code || ''
-          const customerName = this.convertVietnameseToLatin(getCustomerName(order))
-          const orderTotal = getOrderTotal(order)
-          const orderPaid = getOrderPaid(order)
-          const orderDebt = getOrderDebt(order)
+      let currentY = 15;
 
-          // Get order items from order_detail (backend field), order_items, or items
-          const orderItems = order.order_detail || order.order_items || order.items || [];
+      // Header: store info
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      if (storeName) {
+        doc.text(`CUA HANG: ${storeName}`, 14, currentY);
+        currentY += 6;
+      }
 
-          // Add rows for each product in the order
-          if (Array.isArray(orderItems) && orderItems.length > 0) {
-            orderItems.forEach(item => {
-              try {
-                const productName = this.convertVietnameseToLatin(
-                  item.product?.name || 
-                  item.product_name || 
-                  item.name || 
-                  'N/A'
-                );
-                const salesName = this.convertVietnameseToLatin(
-                  order.sales_name || 
-                  order.user?.name || 
-                  order.created_by?.name || 
-                  ''
-                );
-                const note = this.convertVietnameseToLatin(order.note || '');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      if (storeAddress) {
+        doc.text(`Dia chi: ${storeAddress}`, 14, currentY);
+        currentY += 5;
+      }
+      if (storePhone) {
+        doc.text(`Hotline: ${storePhone}`, 14, currentY);
+        currentY += 5;
+      }
 
-                const soldQty = getSoldQty(item);
-                const giftQty = getGiftQty(item);
-                const amount = getLineAmount(item);
+    currentY += 2; // small spacing before title
 
-                const unitName = this.convertVietnameseToLatin(getUnitName(item))
-                const unitPrice = getUnitPrice(item)
+    // Title + period text (hiển thị NGAY TRÊN BẢNG)
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TONG DOANH THU DON HANG', centerX, currentY, { align: 'center' });
+      currentY += 6;
 
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      const periodTextTop = this.getPeriodText();
+      if (periodTextTop) {
+        doc.text(periodTextTop, centerX, currentY, { align: 'center' });
+        currentY += 6;
+      }
+
+      currentY += 2; // small spacing before table
+
+      // Build table data for ALL orders in the selected period
+      const tableData = [];
+
+      let periodTotalRevenue = 0;
+      let periodPaid = 0;
+      let periodDebt = 0;
+
+      orders.forEach(order => {
+        // Accumulate period totals per order
+        const orderTotal = getOrderTotal(order);
+        const orderPaid = getOrderPaid(order);
+        const orderDebt = getOrderDebt(order);
+
+        periodTotalRevenue += orderTotal || 0;
+        periodPaid += orderPaid || 0;
+        periodDebt += orderDebt || 0;
+
+        // Prefer business date create_date
+        const orderCreatedDateRaw = order.create_date || order.created_at;
+        const orderCreatedDate = this.formatDate(orderCreatedDateRaw);
+        const orderCode = order.code || '';
+
+        const customerNameRaw = getCustomerName(order) || '';
+        const customerPhone = order.customer?.phone || order.phone || '';
+        const customerCell = this.convertVietnameseToLatin(
+          `${customerNameRaw}${customerPhone ? ' ' + customerPhone : ''}`.trim()
+        );
+
+        const baseOrderTotal = getOrderTotal(order);
+        const baseOrderPaid = getOrderPaid(order);
+        const baseOrderDebt = getOrderDebt(order);
+
+        const orderItems = order.order_detail || order.order_items || order.items || [];
+
+        // Gom các dòng sản phẩm của cùng 1 đơn vào "block" riêng,
+        // sau đó dùng rowSpan cho 3 cột: Tổng tiền / Đã thanh toán / Còn nợ
+        const orderRows = [];
+
+        if (Array.isArray(orderItems) && orderItems.length > 0) {
+          orderItems.forEach(item => {
+            try {
+              const productNameBase = this.convertVietnameseToLatin(
+                item.product?.name ||
+                item.product_name ||
+                item.name ||
+                'N/A'
+              );
+
+              const soldQty = getSoldQty(item);
+              const giftQty = getGiftQty(item);
+              const amount = getLineAmount(item);
+
+              const unitName = this.convertVietnameseToLatin(getUnitName(item));
+              const unitPrice = getUnitPrice(item);
+
+              // 1) Normal sold quantity row (if any)
+              if (soldQty > 0) {
                 const row = [
                   orderCreatedDate,
                   orderCode,
-                  customerName,
-                  productName,
+                  customerCell,
+                  productNameBase,
                   soldQty,
                   unitName,
                   this.formatCurrency(unitPrice),
                   this.formatCurrency(amount),
-                  this.formatCurrency(orderTotal),
-                  this.formatCurrency(orderPaid),
-                  this.formatCurrency(orderDebt)
+                  '', // Tổng tiền (sẽ set rowSpan sau)
+                  '', // Đã thanh toán
+                  ''  // Còn nợ
                 ];
-                tableData.push(row);
-              } catch (itemError) {
-                console.error('Error processing order item:', itemError, item);
+                orderRows.push(row);
               }
-            });
-          } else {
-            // If no items, show order info
-            try {
-              const salesName = this.convertVietnameseToLatin(order.sales_name || order.user?.name || '');
-              const note = this.convertVietnameseToLatin(order.note || '');
-              
-              const row = [
-                orderCreatedDate,
-                orderCode,
-                customerName,
-                'Khong co san pham',
-                0,
-                '',
-                this.formatCurrency(0),
-                this.formatCurrency(order.retail_cost || 0),
-                this.formatCurrency(orderTotal),
-                this.formatCurrency(orderPaid),
-                this.formatCurrency(orderDebt)
-              ];
-              tableData.push(row);
-            } catch (orderError) {
-              console.error('Error processing order:', orderError, order);
+
+              // 2) Gift quantity row (if any) – hiển thị dấu gạch thay cho số tiền
+              if (giftQty > 0) {
+                const dashCurrency = '-';
+                const giftRow = [
+                  orderCreatedDate,
+                  orderCode,
+                  customerCell,
+                  `Hang tang ${productNameBase}`,
+                  giftQty,
+                  unitName,
+                  dashCurrency,
+                  dashCurrency,
+                  '', // Tổng tiền dùng rowSpan chung của đơn
+                  '',
+                  ''
+                ];
+                orderRows.push(giftRow);
+              }
+
+              // If neither sold nor gift quantity, still show a minimal row
+              if (soldQty === 0 && giftQty === 0) {
+                const minimalRow = [
+                  orderCreatedDate,
+                  orderCode,
+                  customerCell,
+                  productNameBase,
+                  0,
+                  unitName,
+                  this.formatCurrency(0),
+                  this.formatCurrency(0),
+                  '',
+                  '',
+                  ''
+                ];
+                orderRows.push(minimalRow);
+              }
+            } catch (itemError) {
+              console.error('Error processing order item:', itemError, item);
             }
+          });
+        } else {
+          // No items – keep one row for the order itself
+          try {
+            const row = [
+              orderCreatedDate,
+              orderCode,
+              customerCell,
+              'Khong co san pham',
+              0,
+              '',
+              this.formatCurrency(0),
+              this.formatCurrency(order.retail_cost || 0),
+              '',
+              '',
+              ''
+            ];
+            orderRows.push(row);
+          } catch (orderError) {
+            console.error('Error processing order:', orderError, order);
           }
-        });
+        }
 
-  // Add total revenue row
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  const totalText = `Tong doanh thu ngay ${date}`;
-  const totalAmount = this.formatCurrency(totalRevenue);
-  doc.text(totalText, 14, currentY);
-  doc.text(totalAmount, pageWidth - 14, currentY, { align: 'right' });
-  currentY += 8;
+        // Sau khi gom đủ các dòng của 1 đơn, gán rowSpan cho 3 cột cuối
+        if (orderRows.length > 0) {
+          const spanCount = orderRows.length;
+          const totalText = this.formatCurrency(baseOrderTotal);
+          const paidText = this.formatCurrency(baseOrderPaid);
+          const debtText = this.formatCurrency(baseOrderDebt);
 
-        // Create table
-        doc.autoTable({
-          startY: currentY,
-          head: [[
-            'Ngay tao don',
-            'Ma don hang',
-            'Khach hang',
-            'San pham',
-            'So luong',
-            'Don vi',
-            'Don gia',
-            'Thanh tien',
-            'Tong tien',
-            'Da thanh toan',
-            'Con no'
-          ]],
-          body: tableData,
-          styles: {
-            font: 'helvetica',
-            fontSize: 8,
-            cellPadding: 1.5,
-            overflow: 'linebreak',
-            halign: 'left'
-          },
-          headStyles: {
-            fillColor: [66, 139, 202],
-            textColor: 255,
-            fontStyle: 'bold',
-            halign: 'center',
-            valign: 'middle'
-          },
-          columnStyles: {
-            0: { cellWidth: 18 }, // Created date
-            1: { cellWidth: 22 }, // Code
-            2: { cellWidth: 26 }, // Customer
-            3: { cellWidth: 58 }, // Product
-            4: { cellWidth: 14, halign: 'center' }, // Qty
-            5: { cellWidth: 14 }, // Unit
-            6: { cellWidth: 20, halign: 'right' }, // Unit price
-            7: { cellWidth: 22, halign: 'right' }, // Line total
-            8: { cellWidth: 22, halign: 'right' }, // Order total
-            9: { cellWidth: 22, halign: 'right' }, // Paid
-            10: { cellWidth: 20, halign: 'right' } // Debt
-          },
-          margin: { left: 10, right: 10 },
-          theme: 'grid',
-          tableWidth: 'wrap'
-        });
+          // Hàng đầu tiên của đơn sẽ mang giá trị + rowSpan,
+          // các hàng còn lại để trống -> nhìn giống như 1 ô duy nhất.
+          // styles: canh giữa cả ngang (halign) lẫn dọc (valign) cho đẹp.
+          const spanCellStyles = { halign: 'center', valign: 'middle' };
+          orderRows[0][8] = { content: totalText, rowSpan: spanCount, styles: spanCellStyles };
+          orderRows[0][9] = { content: paidText, rowSpan: spanCount, styles: spanCellStyles };
+          orderRows[0][10] = { content: debtText, rowSpan: spanCount, styles: spanCellStyles };
+
+          for (let i = 1; i < spanCount; i++) {
+            orderRows[i][8] = '';
+            orderRows[i][9] = '';
+            orderRows[i][10] = '';
+          }
+
+          tableData.push(...orderRows);
+        }
       });
+
+      // Create table for entire period
+      doc.autoTable({
+        startY: currentY,
+        head: [[
+          'Ngay tao don',
+          'Ma don hang',
+          'Khach hang',
+          'San pham',
+          'So luong',
+          'Don vi',
+          'Don gia',
+          'Thanh tien',
+          'Tong tien',
+          'Da thanh toan',
+          'Con no'
+        ]],
+        body: tableData,
+        styles: {
+          font: 'helvetica',
+          fontSize: 8,
+          cellPadding: 1.5,
+          overflow: 'linebreak',
+          halign: 'left'
+        },
+        headStyles: {
+          fillColor: [66, 139, 202],
+          textColor: 255,
+          fontStyle: 'bold',
+          halign: 'center',
+          valign: 'middle'
+        },
+        columnStyles: {
+          0: { cellWidth: 18 }, // Created date
+          1: { cellWidth: 22 }, // Code
+          2: { cellWidth: 32 }, // Customer + phone
+          3: { cellWidth: 54 }, // Product
+          4: { cellWidth: 14, halign: 'center' }, // Qty
+          5: { cellWidth: 16, halign: 'center' }, // Unit
+          6: { cellWidth: 20, halign: 'right' }, // Unit price
+          7: { cellWidth: 22, halign: 'right' }, // Line total
+          8: { cellWidth: 22, halign: 'center' }, // Order total
+          9: { cellWidth: 22, halign: 'center' }, // Paid
+          10: { cellWidth: 20, halign: 'center' } // Debt
+        },
+        margin: { left: 10, right: 10 },
+        theme: 'grid',
+        tableWidth: 'wrap'
+      });
+
+      // Position for summary (after table, possibly new page)
+      let summaryY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 8 : currentY + 8;
+      if (summaryY + 30 > pageHeight) {
+        doc.addPage();
+        summaryY = 20;
+      }
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+  // Summary lines
+  doc.text(`Phat sinh trong ky: ${this.formatNumberVN(periodTotalRevenue)} VND`, 14, summaryY);
+      summaryY += 6;
+  doc.text(`Da thanh toan trong ky: ${this.formatNumberVN(periodPaid)} VND`, 14, summaryY);
+      summaryY += 6;
+  doc.text(`No cuoi ky (con lai): ${this.formatNumberVN(periodDebt)} VND`, 14, summaryY);
+      summaryY += 8;
+
+      // Account line: use user name + current time
+      const now = new Date();
+      const pad2 = (n) => String(n).padStart(2, '0');
+      const timeStr = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+      const dateStr = `${pad2(now.getDate())}-${pad2(now.getMonth() + 1)}-${now.getFullYear()}`;
+      const accountName = this.convertVietnameseToLatin(userInfo.name || firstOrderUser.name || '');
+      if (accountName) {
+        doc.text(`Account: ${accountName}_${timeStr}_${dateStr}`, 14, summaryY);
+        summaryY += 8;
+      }
 
       // Save PDF
       console.log('Saving PDF...');
@@ -596,6 +730,40 @@ export default {
         console.error('Error generating PDF:', error);
         throw error; // Re-throw to be caught by submitExport
       }
+    },
+
+    getPeriodText() {
+      // If both from/to selected and are the same day, show weekday-style text
+      if (this.form.from && this.form.to && this.form.from === this.form.to) {
+        const date = new Date(this.form.from);
+        const weekday = this.getVietnameseWeekday(date.getDay());
+        const [year, month, day] = this.form.from.split('-');
+        return `Tu: ${weekday} ngay ${day}/${month}/${year}`;
+      }
+
+      if (this.form.from && this.form.to) {
+        return `Tu: ${this.formattedFromDate} den: ${this.formattedToDate}`;
+      }
+
+      if (this.form.from) {
+        const [year, month, day] = this.form.from.split('-');
+        return `Tu: ${day}/${month}/${year}`;
+      }
+
+      return '';
+    },
+
+    getVietnameseWeekday(dayIndex) {
+      const days = [
+        'Chu Nhat',
+        'Thu Hai',
+        'Thu Ba',
+        'Thu Tu',
+        'Thu Nam',
+        'Thu Sau',
+        'Thu Bay'
+      ];
+      return days[dayIndex] || '';
     },
 
     convertVietnameseToLatin(str) {
