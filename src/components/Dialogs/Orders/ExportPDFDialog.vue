@@ -426,9 +426,13 @@ export default {
       const firstOrderUser = orders[0]?.user || {};
 
       // Thông tin cửa hàng mặc định nếu không lấy được từ user_info
-      const defaultStoreName = 'AAIPHARMA 32 DAI TU';
-      const defaultStoreAddress = 'SH02.HH3B.EcoLakeView Dai Tu';
-      const defaultStorePhone = '0888472589';
+      // const defaultStoreName = 'AAIPHARMA 32 DAI TU';
+      // const defaultStoreAddress = 'SH02.HH3B.EcoLakeView Dai Tu';
+      // const defaultStorePhone = '0888472589';
+
+      const defaultStoreName = 'AAIPHARMA 66B HOANG HOA THAM';
+      const defaultStoreAddress = '66B Hoang Hoa Tham, Thuy Khue, Ha Noi';
+      const defaultStorePhone = '0848872589';
 
       const storeName = this.convertVietnameseToLatin(
         userInfo.store_name || firstOrderUser.store_name || defaultStoreName
