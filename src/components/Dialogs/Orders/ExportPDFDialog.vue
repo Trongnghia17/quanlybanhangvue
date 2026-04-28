@@ -230,6 +230,10 @@ export default {
         // Prepare payload
         const payload = {
           type: 1, // Sales orders
+          // Chỉ lấy đơn hợp lệ (không lấy đơn hủy).
+          // Backend OrderRepository chỉ lọc status khi request có `status`.
+          // Nếu bạn muốn bao gồm đơn hủy, hãy bỏ dòng này hoặc thêm option UI.
+          status: 2,
           per_page: 1000, // Get all orders
           with: 'orderItems,orderItems.product' // Include related data
         };
